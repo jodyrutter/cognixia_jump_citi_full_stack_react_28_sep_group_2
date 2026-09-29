@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .models import Admin, AdminCreate, Account, AccountCreate, AccountUpdate, Customer, CustomerCreate, CustomerUpdate, MoneyRequest
@@ -21,6 +22,13 @@ from .store import AccountStore
 from .user_store import UserStore
 
 app = FastAPI(title="Banking API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def get_account_store() -> AccountStore:

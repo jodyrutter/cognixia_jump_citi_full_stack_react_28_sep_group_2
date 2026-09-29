@@ -1,3 +1,15 @@
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/vite.config.d.ts
+frontend/vite.config.js
+*.tsbuildinfo
+
+# IDE local files
+.vs/
+.vscode/
+.idea/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
