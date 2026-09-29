@@ -21,18 +21,20 @@ class Customer(User):
         super().__init__(userId, name)
         self.accountNumber = accountNumber
         self.balance = balance
+        self.admin = False
 
     def to_dict(self):
         response = super().to_dict()
         response["account_number"] = self.accountNumber
         response["balance"] = self.balance
+        response["admin"] = self.admin
 
         return response
         
 class Admin(User):
-    def __init__(self, userId, name, admin: bool):
+    def __init__(self, userId, name):
         super().__init__(userId, name)
-        self.admin = admin
+        self.admin = True
 
     def to_dict(self):
         response =  super().to_dict()
@@ -40,6 +42,12 @@ class Admin(User):
 
         return response
 
+class CustomerCreate(BaseModel):
+    name: str
+    email: str
+    password: str
+    account_number: str
+    balance: float = 0.0
 
 class AccountBase(BaseModel):
     owner_name: str = Field(min_length=1, max_length=100)
