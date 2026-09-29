@@ -29,14 +29,27 @@ class CustomerCreate(BaseModel):
     address: str
 
 
+class AdminCreate(CustomerCreate):
+    pass
+
+
 class AccountCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     owner_id: int
     account_type: AccountType
     account_number: str = Field(min_length=4, max_length=20)
 
 
 class AccountUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     account_type: AccountType | None = None
+    balance: Decimal | None = Field(default=None, ge=0, decimal_places=2)
+
+
+class MoneyRequest(BaseModel):
+    amount: Decimal = Field(gt=0, decimal_places=2)
 
 
 class Account(AccountCreate):

@@ -1,29 +1,64 @@
-from fastapi.testclient import TestClient
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 
+import pytest
+from fastapi.testclient import TestClient
+
 from app import auth
-from app.main import app, get_account_store
-from app.models import Admin, Customer
+from app.main import get_account_store
+from app.models import AdminCreate, CustomerCreate
+from app.user_store import UserStore, get_user_store
 from app.store import AccountStore
 
+from app.main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client(monkeypatch):
+    monkeypatch.delenv("BANK_ADMIN_PASSWORD_HASH", raising=False)
+    store = AccountStore()
+    user_store = UserStore()
+    user_store.create_admin(AdminCreate(
+        name="Test Admin", email="test-admin@example.com", password="test-password", address="Test address",
+    ))
+    user_store.create_customer(CustomerCreate(
+        name="Test Customer", email="customer@example.com", password="test-password", address="Test address",
+    ))
+    previous_overrides = app.dependency_overrides.copy()
+    previous_sessions = auth.sessions.copy()
+    app.dependency_overrides[get_account_store] = lambda: store
+    app.dependency_overrides[get_user_store] = lambda: user_store
+    auth.sessions.clear()
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous_overrides)
+        auth.sessions.clear()
+        auth.sessions.update(previous_sessions)
 
 
-def test_list_accounts_returns_seed_data() -> None:
+def login_headers(client, email="test-admin@example.com"):
+    response = client.post("/api/login", json={"email": email, "password": "test-password"})
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_list_accounts_returns_seed_data(client) -> None:
     response = client.get("/api/accounts")
 
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
-def test_account_crud_flow() -> None:
+def test_account_crud_flow(client) -> None:
+    client.headers.update(login_headers(client))
     create_response = client.post(
         "/api/accounts",
         json={
             "account_number": "10000003",
-            "owner_id": 3,
+            "owner_id": 1,
             "account_type": "checking",
         },
     )
@@ -43,73 +78,174 @@ def test_account_crud_flow() -> None:
     assert client.get(f"/api/accounts/{account_id}").status_code == 404
 
 
-def test_missing_account_returns_not_found() -> None:
+def test_missing_account_returns_not_found(client) -> None:
     response = client.get("/api/accounts/999")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
 
-def test_only_admin_can_delete_account() -> None:
-    test_store = AccountStore()
 
-    admin = Admin(
-        userId=101,
-        name="Test Admin",
-        email="admin@example.com",
-        address="Test address",
+def test_deposit_and_withdraw(client) -> None:
+    client.headers.update(login_headers(client))
+    deposit_response = client.post(
+        "/api/accounts/1/deposit",
+        json={"amount": "100.00"},
+    )
+    assert deposit_response.status_code == 200
+    assert deposit_response.json()["balance"] == "1350.00"
+
+    withdraw_response = client.post(
+        "/api/accounts/1/withdraw",
+        json={"amount": "50.00"},
+    )
+    assert withdraw_response.status_code == 200
+    assert withdraw_response.json()["balance"] == "1300.00"
+
+
+def test_withdraw_rejects_insufficient_funds(client) -> None:
+    client.headers.update(login_headers(client))
+    response = client.post(
+        "/api/accounts/2/withdraw",
+        json={"amount": "10000.00"},
     )
 
-    customer = Customer(
-        userId=102,
-        name="Test Customer",
-        email="customer@example.com",
-        address="Test address",
-        accountNumber="10000001",
-        balance=0,
-        accountType="checking",
-    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Insufficient funds"}
 
-    admin_token = token_urlsafe(32)
-    customer_token = token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
 
-    previous_users = auth.users.copy()
-    previous_sessions = auth.sessions.copy()
-    previous_overrides = app.dependency_overrides.copy()
+@pytest.mark.parametrize("method,path,payload", [
+    ("DELETE", "/api/accounts/1", None),
+    ("PATCH", "/api/accounts/1", {"balance": "0.00"}),
+    ("POST", "/api/accounts/1/deposit", {"amount": "10.00"}),
+    ("POST", "/api/accounts/1/withdraw", {"amount": "10.00"}),
+])
+def test_balance_mutations_and_deletion_require_admin(client, method, path, payload):
+    before = client.get("/api/accounts/1").json()
+    response = client.request(method, path, json=payload)
+    assert response.status_code == 401
+    headers = login_headers(client, "customer@example.com")
+    response = client.request(method, path, json=payload, headers=headers)
+    assert response.status_code == 403
+    assert client.get("/api/accounts/1").json() == before
 
-    try:
-        auth.users[admin.userId] = admin
-        auth.users[customer.userId] = customer
-        auth.sessions[admin_token] = (admin.userId, expires_at)
-        auth.sessions[customer_token] = (customer.userId, expires_at)
 
-        app.dependency_overrides[get_account_store] = lambda: test_store
-        response = client.delete("/api/accounts/1")
+def test_admin_can_set_balance_to_zero(client):
+    response = client.patch("/api/accounts/1", json={"balance": "0.00"}, headers=login_headers(client))
+    assert response.status_code == 200
+    assert response.json()["balance"] == "0.00"
+
+
+@pytest.mark.parametrize("balance", [None, "-1.00", "1.001"])
+def test_invalid_balance_does_not_change_account(client, balance):
+    before = client.get("/api/accounts/1").json()
+    response = client.patch("/api/accounts/1", json={"balance": balance}, headers=login_headers(client))
+    assert response.status_code == 422
+    assert client.get("/api/accounts/1").json() == before
+
+
+def test_customer_can_update_account_type(client):
+    response = client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=login_headers(client, "customer@example.com"))
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("email,password", [
+    ("test-admin@example.com", "wrong-password"),
+    ("missing@example.com", "test-password"),
+])
+def test_invalid_login(client, email, password):
+    response = client.post("/api/login", json={"email": email, "password": password})
+    assert response.status_code == 401
+    assert not auth.sessions
+
+
+@pytest.mark.parametrize("session_kind", ["unknown", "expired", "missing_user"])
+def test_invalid_sessions(client, session_kind):
+    token = token_urlsafe(32)
+    if session_kind == "expired":
+        auth.sessions[token] = (4, datetime.now(timezone.utc) - timedelta(minutes=1))
+    elif session_kind == "missing_user":
+        auth.sessions[token] = (999, datetime.now(timezone.utc) + timedelta(minutes=1))
+    response = client.delete("/api/accounts/1", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 401
+    assert client.get("/api/accounts/1").status_code == 200
+
+
+def test_creation_cannot_set_balance(client):
+    response = client.post("/api/accounts", json={
+        "owner_id": 102, "account_type": "checking", "account_number": "10000099", "balance": "1000.00",
+    })
+    assert response.status_code == 422
+    assert len(client.get("/api/accounts").json()) == 2
+
+
+@pytest.mark.parametrize("operation", ["deposit", "withdraw"])
+def test_transaction_validation_and_missing_account(client, operation):
+    headers = login_headers(client)
+    response = client.post(f"/api/accounts/1/{operation}", json={"amount": "0"}, headers=headers)
+    assert response.status_code == 422
+    response = client.post(f"/api/accounts/999/{operation}", json={"amount": "1.00"}, headers=headers)
+    assert response.status_code == 404
+
+
+def test_registered_customer_can_login_and_own_account(client):
+    response = client.post("/api/customers", json={
+        "name": "New Customer", "email": "new@example.com", "password": "test-password", "address": "Delhi",
+    })
+    assert response.status_code == 201
+    customer = response.json()
+    assert "password" not in customer
+    assert "password_hash" not in customer
+    assert "admin" not in customer
+    headers = login_headers(client, "new@example.com")
+    response = client.post("/api/accounts", json={
+        "owner_id": customer["user_id"], "account_number": "10000020", "account_type": "checking",
+    })
+    assert response.status_code == 201
+    assert response.json()["balance"] == "0.00"
+    account_id = response.json()["id"]
+    assert client.delete(f"/api/accounts/{account_id}", headers=headers).status_code == 403
+    assert client.get(f"/api/accounts/{account_id}").status_code == 200
+    assert any(user["user_id"] == customer["user_id"] for user in client.get("/api/customers").json())
+
+
+def test_only_admin_can_create_admin_and_new_admin_can_login(client):
+    payload = {"name": "Second Admin", "email": "second-admin@example.com", "password": "test-password", "address": "Delhi"}
+    assert client.post("/api/admins", json=payload).status_code == 401
+    customer_headers = login_headers(client, "customer@example.com")
+    assert client.post("/api/admins", json=payload, headers=customer_headers).status_code == 403
+    response = client.post("/api/admins", json=payload, headers=login_headers(client))
+    assert response.status_code == 201
+    assert response.json()["admin"] is True
+    assert "password" not in response.json()
+    new_admin_headers = login_headers(client, "second-admin@example.com")
+    assert client.delete("/api/accounts/1", headers=new_admin_headers).status_code == 204
+    assert any(user["user_id"] == response.json()["user_id"] for user in client.get("/api/admins").json())
+
+
+@pytest.mark.parametrize("owner_id", [999, 3])
+def test_account_requires_existing_customer(client, owner_id):
+    response = client.post("/api/accounts", json={
+        "owner_id": owner_id, "account_number": "10000030", "account_type": "checking",
+    })
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Customer not found"}
+
+
+def test_bootstrap_admin_uses_configured_hash(monkeypatch):
+    from pwdlib import PasswordHash
+
+    password_hash = PasswordHash.recommended().hash("bootstrap-test-password")
+    monkeypatch.setenv("BANK_ADMIN_PASSWORD_HASH", password_hash)
+    store = UserStore()
+    user = store.authenticate("admin@example.com", "bootstrap-test-password")
+    assert user is not None
+    assert user.user_id == 3
+    assert user.admin is True
+    assert store.get_customer(1) is not None
+    assert store.authenticate("admin@example.com", "wrong-password") is None
+
+
+def test_seed_users_without_passwords_cannot_login(client):
+    for email in ("admin@example.com", "aarav@example.com", "maya@example.com"):
+        response = client.post("/api/login", json={"email": email, "password": "test-password"})
         assert response.status_code == 401
-        assert test_store.get(1) is not None
-
-        response = client.delete(
-            "/api/accounts/1",
-            headers={
-                "Authorization": f"Bearer {customer_token}",
-            },
-        )
-        assert response.status_code == 403
-        assert test_store.get(1) is not None
-
-        response = client.delete(
-            "/api/accounts/1",
-            headers={
-                "Authorization": f"Bearer {admin_token}",
-            },
-        )
-        assert response.status_code == 204
-        assert test_store.get(1) is None
-
-    finally:
-        auth.users.clear()
-        auth.users.update(previous_users)
-        auth.sessions.clear()
-        auth.sessions.update(previous_sessions)
-        app.dependency_overrides.clear()
-        app.dependency_overrides.update(previous_overrides)
