@@ -1,2 +1,28 @@
-# cognixia_jump_citi_full_stack_react_28_sep_group_2
-Group task for group 2 of cognixia jump citiy full stack react training from sep 28 to oct 2nd
+# Banking API
+
+A simple FastAPI banking service with in-memory dummy data. It currently supports CRUD operations for bank accounts and does not require a database or frontend.
+
+## Run locally
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e ".[test]"
+uvicorn app.main:app --reload
+```
+
+The API is available at `http://127.0.0.1:8000`. Interactive documentation is at `http://127.0.0.1:8000/docs`.
+
+## Endpoints
+
+- `GET /api/accounts` - list accounts
+- `GET /api/accounts/{account_id}` - get one account
+- `POST /api/accounts` - create an account
+- `PATCH /api/accounts/{account_id}` - update an account
+- `DELETE /api/accounts/{account_id}` - delete an account
+
+Run the tests with:
+
+```powershell
+pytest
+```
