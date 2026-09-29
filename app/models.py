@@ -21,11 +21,12 @@ class User:
         }
 
 class Customer(User):
-    def __init__(self, userId, name, accountNumber, balance):
-        super().__init__(userId, name)
+    def __init__(self, userId, name, email, address, accountNumber, balance, accountType):
+        super().__init__(userId, name, email, address)
         self.accountNumber = accountNumber
         self.balance = balance
         self.admin = False
+        self.accountType = accountType
 
     def to_dict(self):
         response = super().to_dict()
@@ -36,8 +37,8 @@ class Customer(User):
         return response
         
 class Admin(User):
-    def __init__(self, userId, name):
-        super().__init__(userId, name)
+    def __init__(self, userId, name, email, address):
+        super().__init__(userId, name, email, address)
         self.admin = True
 
     def to_dict(self):
