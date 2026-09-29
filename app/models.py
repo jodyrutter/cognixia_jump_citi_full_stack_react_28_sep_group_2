@@ -44,3 +44,7 @@ class Account(AccountCreate):
 
     id: int
     balance: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
