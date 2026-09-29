@@ -2,9 +2,14 @@ from decimal import Decimal
 
 from ..models import Account, AccountCreate, AccountUpdate
 from ..store import AccountStore
+from ..user_store import UserStore
 
 
 class AccountNotFoundError(Exception):
+    pass
+
+
+class CustomerNotFoundError(Exception):
     pass
 
 
@@ -17,8 +22,9 @@ class InsufficientFundsError(Exception):
 
 
 class AccountService:
-    def __init__(self, store: AccountStore) -> None:
+    def __init__(self, store: AccountStore, user_store: UserStore) -> None:
         self._store = store
+        self._user_store = user_store
 
     def list_accounts(self) -> list[Account]:
         return self._store.list()
@@ -30,6 +36,8 @@ class AccountService:
         return account
 
     def create_account(self, account_data: AccountCreate) -> Account:
+        if self._user_store.get_customer(account_data.owner_id) is None:
+            raise CustomerNotFoundError
         return self._store.create(account_data)
 
     def update_account(self, account_id: int, account_data: AccountUpdate) -> Account:

@@ -29,6 +29,10 @@ class CustomerCreate(BaseModel):
     address: str
 
 
+class AdminCreate(CustomerCreate):
+    pass
+
+
 class AccountCreate(BaseModel):
     owner_id: int
     account_type: AccountType

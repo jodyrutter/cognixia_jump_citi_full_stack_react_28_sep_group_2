@@ -13,12 +13,39 @@ def test_list_accounts_returns_seed_data() -> None:
     assert len(response.json()) == 2
 
 
+def test_customer_and_admin_endpoints() -> None:
+    customer_response = client.post(
+        "/api/customers",
+        json={
+            "name": "Rohan Mehta",
+            "email": "rohan@example.com",
+            "password": "training-password",
+            "address": "Delhi",
+        },
+    )
+    assert customer_response.status_code == 201
+    assert customer_response.json()["name"] == "Rohan Mehta"
+    assert "password" not in customer_response.json()
+
+    admin_response = client.post(
+        "/api/admins",
+        json={
+            "name": "Second Admin",
+            "email": "admin2@example.com",
+            "password": "training-password",
+            "address": "Delhi",
+        },
+    )
+    assert admin_response.status_code == 201
+    assert admin_response.json()["admin"] is True
+
+
 def test_account_crud_flow() -> None:
     create_response = client.post(
         "/api/accounts",
         json={
             "account_number": "10000003",
-            "owner_id": 3,
+            "owner_id": 1,
             "account_type": "checking",
         },
     )
@@ -43,6 +70,20 @@ def test_missing_account_returns_not_found() -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
+
+
+def test_account_requires_existing_customer() -> None:
+    response = client.post(
+        "/api/accounts",
+        json={
+            "account_number": "10000099",
+            "owner_id": 999,
+            "account_type": "checking",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Customer not found"}
 
 
 def test_deposit_and_withdraw() -> None:
