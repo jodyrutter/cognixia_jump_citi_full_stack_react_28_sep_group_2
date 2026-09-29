@@ -20,6 +20,8 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is at
 - `POST /api/accounts` - create an account
 - `PATCH /api/accounts/{account_id}` - update an account
 - `DELETE /api/accounts/{account_id}` - delete an account
+- `POST /api/accounts/{account_id}/deposit` - deposit money
+- `POST /api/accounts/{account_id}/withdraw` - withdraw money
 
 Run the tests with:
 

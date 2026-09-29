@@ -46,5 +46,9 @@ class AccountStore:
         self._accounts[account_id] = updated_account
         return deepcopy(updated_account)
 
+    def save(self, account: Account) -> Account:
+        self._accounts[account.id] = deepcopy(account)
+        return deepcopy(account)
+    
     def delete(self, account_id: int) -> bool:
         return self._accounts.pop(account_id, None) is not None

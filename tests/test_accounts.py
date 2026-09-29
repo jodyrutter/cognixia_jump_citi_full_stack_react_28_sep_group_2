@@ -43,3 +43,29 @@ def test_missing_account_returns_not_found() -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
+
+
+def test_deposit_and_withdraw() -> None:
+    deposit_response = client.post(
+        "/api/accounts/1/deposit",
+        json={"amount": "100.00"},
+    )
+    assert deposit_response.status_code == 200
+    assert deposit_response.json()["balance"] == "1350.00"
+
+    withdraw_response = client.post(
+        "/api/accounts/1/withdraw",
+        json={"amount": "50.00"},
+    )
+    assert withdraw_response.status_code == 200
+    assert withdraw_response.json()["balance"] == "1300.00"
+
+
+def test_withdraw_rejects_insufficient_funds() -> None:
+    response = client.post(
+        "/api/accounts/2/withdraw",
+        json={"amount": "10000.00"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Insufficient funds"}

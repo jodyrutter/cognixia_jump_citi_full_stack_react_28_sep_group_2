@@ -1,8 +1,15 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi import Depends, FastAPI, Request, Response, status
+from fastapi.responses import JSONResponse
 
-from .models import Account, AccountCreate, AccountUpdate
+from .models import Account, AccountCreate, AccountUpdate, MoneyRequest
+from .services.account_service import (
+    AccountNotFoundError,
+    AccountService,
+    InsufficientFundsError,
+    InvalidAmountError,
+)
 from .store import AccountStore
 
 app = FastAPI(title="Banking API", version="0.1.0")
@@ -13,7 +20,28 @@ def get_account_store() -> AccountStore:
 
 
 account_store = AccountStore()
-Store = Annotated[AccountStore, Depends(get_account_store)]
+
+
+def get_account_service() -> AccountService:
+    return AccountService(account_store)
+
+
+Service = Annotated[AccountService, Depends(get_account_service)]
+
+
+@app.exception_handler(AccountNotFoundError)
+async def account_not_found_handler(_request: Request, _exception: AccountNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "Account not found"})
+
+
+@app.exception_handler(InvalidAmountError)
+async def invalid_amount_handler(_request: Request, _exception: InvalidAmountError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Amount must be greater than zero"})
+
+
+@app.exception_handler(InsufficientFundsError)
+async def insufficient_funds_handler(_request: Request, _exception: InsufficientFundsError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
 
 
 @app.get("/", tags=["health"])
@@ -22,33 +50,36 @@ def health_check() -> dict[str, str]:
 
 
 @app.get("/api/accounts", response_model=list[Account], tags=["accounts"])
-def list_accounts(store: Store) -> list[Account]:
-    return store.list()
+def list_accounts(service: Service) -> list[Account]:
+    return service.list_accounts()
 
 
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def get_account(account_id: int, store: Store) -> Account:
-    account = store.get(account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return account
+def get_account(account_id: int, service: Service) -> Account:
+    return service.get_account(account_id)
 
 
 @app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
-def create_account(account_data: AccountCreate, store: Store) -> Account:
-    return store.create(account_data)
+def create_account(account_data: AccountCreate, service: Service) -> Account:
+    return service.create_account(account_data)
 
 
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def update_account(account_id: int, account_data: AccountUpdate, store: Store) -> Account:
-    account = store.update(account_id, account_data)
-    if account is None:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return account
+def update_account(account_id: int, account_data: AccountUpdate, service: Service) -> Account:
+    return service.update_account(account_id, account_data)
 
 
 @app.delete("/api/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["accounts"])
-def delete_account(account_id: int, store: Store) -> Response:
-    if not store.delete(account_id):
-        raise HTTPException(status_code=404, detail="Account not found")
+def delete_account(account_id: int, service: Service) -> Response:
+    service.delete_account(account_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/accounts/{account_id}/deposit", response_model=Account, tags=["transactions"])
+def deposit(account_id: int, request: MoneyRequest, service: Service) -> Account:
+    return service.deposit(account_id, request.amount)
+
+
+@app.post("/api/accounts/{account_id}/withdraw", response_model=Account, tags=["transactions"])
+def withdraw(account_id: int, request: MoneyRequest, service: Service) -> Account:
+    return service.withdraw(account_id, request.amount)

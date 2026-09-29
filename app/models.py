@@ -39,6 +39,10 @@ class AccountUpdate(BaseModel):
     account_type: AccountType | None = None
 
 
+class MoneyRequest(BaseModel):
+    amount: Decimal = Field(gt=0, decimal_places=2)
+
+
 class Account(AccountCreate):
     model_config = ConfigDict(from_attributes=True)
 
