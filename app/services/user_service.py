@@ -1,6 +1,5 @@
 from ..models import Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
-from ..store import AccountStore
-from ..user_store import UserStore
+from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
 
 
 class CustomerNotFoundError(Exception):
@@ -12,7 +11,7 @@ class CustomerHasAccountsError(Exception):
 
 
 class UserService:
-    def __init__(self, store: UserStore, account_store: AccountStore) -> None:
+    def __init__(self, store: UserStoreProtocol, account_store: AccountStoreProtocol) -> None:
         self._store = store
         self._account_store = account_store
 

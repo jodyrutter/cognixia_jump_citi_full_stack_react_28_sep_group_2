@@ -16,12 +16,11 @@ from .services.account_service import (
     InsufficientFundsError,
     InvalidAmountError,
 )
-from .store import AccountStore
+from .mongo_store import MongoAccountStore, MongoUserStore, get_user_store, mongo_account_store
 from .services.user_service import UserService, CustomerHasAccountsError
 from .services.user_service import CustomerNotFoundError as UserCustomerNotFoundError
-from .user_store import UserStore, get_user_store
 
-UserStorage = Annotated[UserStore, Depends(get_user_store)]
+UserStorage = Annotated[MongoUserStore, Depends(get_user_store)]
 
 app = FastAPI(title="Banking API", version="0.1.0")
 
@@ -51,15 +50,15 @@ def login(credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
         "token_type": "bearer",
     }
 
-def get_account_store() -> AccountStore:
+def get_account_store() -> MongoAccountStore:
     return account_store
 
 
-account_store = AccountStore()
+account_store = mongo_account_store
 
 
 def get_account_service(
-    store: Annotated[AccountStore, Depends(get_account_store)],
+    store: Annotated[MongoAccountStore, Depends(get_account_store)],
     user_store: UserStorage,
 ) -> AccountService:
     return AccountService(store, user_store)
@@ -70,7 +69,7 @@ Service = Annotated[AccountService, Depends(get_account_service)]
 
 def get_user_service(
     user_store: UserStorage,
-    store: Annotated[AccountStore, Depends(get_account_store)],
+    store: Annotated[MongoAccountStore, Depends(get_account_store)],
 ) -> UserService:
     return UserService(user_store, store)
 

@@ -1,14 +1,19 @@
 from datetime import datetime, timedelta, timezone
+import os
 from secrets import token_urlsafe
 
 import pytest
 from fastapi.testclient import TestClient
+from pymongo.database import Database
+
+os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
+os.environ["MONGODB_DATABASE"] = "banking_test"
 
 from app import auth
 from app.main import get_account_store
-from app.models import AdminCreate, CustomerCreate
-from app.user_store import UserStore, get_user_store
-from app.store import AccountStore
+from app.mongo_store import MongoAccountStore, MongoUserStore, get_database
+from app.models import Admin, AdminCreate, CustomerCreate
+from app.mongo_store import get_user_store
 
 from app.main import app
 
@@ -16,8 +21,10 @@ from app.main import app
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.delenv("BANK_ADMIN_PASSWORD_HASH", raising=False)
-    store = AccountStore()
-    user_store = UserStore()
+    database: Database = get_database()
+    database.client.drop_database(database.name)
+    store = MongoAccountStore(database)
+    user_store = MongoUserStore(database)
     user_store.create_admin(AdminCreate(
         name="Test Admin", email="test-admin@example.com", password="test-password", address="Test address",
     ))
@@ -39,8 +46,8 @@ def client(monkeypatch):
         auth.sessions.update(previous_sessions)
 
 
-def login_headers(client, email="test-admin@example.com"):
-    response = client.post("/api/login", json={"email": email, "password": "test-password"})
+def login_headers(client, email="test-admin@example.com", password="test-password"):
+    response = client.post("/api/login", json={"email": email, "password": password})
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
@@ -236,9 +243,11 @@ def test_bootstrap_admin_uses_configured_hash(monkeypatch):
 
     password_hash = PasswordHash.recommended().hash("bootstrap-test-password")
     monkeypatch.setenv("BANK_ADMIN_PASSWORD_HASH", password_hash)
-    store = UserStore()
+    database = get_database()
+    database.client.drop_database(database.name)
+    store = MongoUserStore(database)
     user = store.authenticate("admin@example.com", "bootstrap-test-password")
-    assert user is not None
+    assert isinstance(user, Admin)
     assert user.user_id == 3
     assert user.admin is True
     assert store.get_customer(1) is not None
@@ -269,6 +278,7 @@ def test_customer_view_update_and_admin_delete(client) -> None:
     update_response = client.patch(
         f"/api/customers/{customer_id}",
         json={"address": "Bengaluru"},
+        headers=login_headers(client, "delete@example.com", "training-password"),
     )
     assert update_response.status_code == 200
     assert update_response.json()["address"] == "Bengaluru"
@@ -308,7 +318,11 @@ def test_customer_delete_rejects_unverified_user_id_header(client):
 
 
 def test_customer_password_update_works_with_login(client):
-    response = client.patch("/api/customers/5", json={"password": "updated-password"})
+    response = client.patch(
+        "/api/customers/5",
+        json={"password": "updated-password"},
+        headers=login_headers(client, "customer@example.com"),
+    )
     assert response.status_code == 200
     assert "password" not in response.json()
     assert client.post("/api/login", json={

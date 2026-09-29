@@ -1,8 +1,7 @@
 from decimal import Decimal
 
 from ..models import Account, AccountCreate, AccountUpdate
-from ..store import AccountStore
-from ..user_store import UserStore
+from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
 
 
 class AccountNotFoundError(Exception):
@@ -22,7 +21,7 @@ class InsufficientFundsError(Exception):
 
 
 class AccountService:
-    def __init__(self, store: AccountStore, user_store: UserStore) -> None:
+    def __init__(self, store: AccountStoreProtocol, user_store: UserStoreProtocol) -> None:
         self._store = store
         self._user_store = user_store
 

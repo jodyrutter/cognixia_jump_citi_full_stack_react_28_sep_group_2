@@ -3,11 +3,11 @@ from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .models import User, Admin
-from .user_store import UserStore, get_user_store
+from .mongo_store import MongoUserStore, get_user_store
 
 bearer_scheme = HTTPBearer(auto_error=False)
 sessions: dict[str, tuple[int, datetime]] = {}
-UserStorage = Annotated[UserStore, Depends(get_user_store)]
+UserStorage = Annotated[MongoUserStore, Depends(get_user_store)]
 
 
 def get_current_user(

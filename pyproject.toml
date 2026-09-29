@@ -1,12 +1,13 @@
 [project]
 name = "banking-api"
 version = "0.1.0"
-description = "A simple in-memory banking CRUD API"
+description = "A banking CRUD API backed by MongoDB"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0,<1.0.0",
     "uvicorn[standard]>=0.30.0,<1.0.0",
     "pwdlib[argon2]",
+    "pymongo>=4.10.0,<5.0.0",
 ]
 
 [project.optional-dependencies]
