@@ -16,7 +16,7 @@ from .services.account_service import (
     InsufficientFundsError,
     InvalidAmountError,
 )
-from .mongo_store import MongoAccountStore, MongoUserStore, get_user_store, mongo_account_store
+from .mongo_store import MongoAccountStore, MongoUserStore, get_user_store, mongo_account_store, EmailAlreadyExistsError
 from .services.user_service import UserService, CustomerHasAccountsError
 from .services.user_service import CustomerNotFoundError as UserCustomerNotFoundError
 
@@ -75,6 +75,10 @@ def get_user_service(
 
 
 Users = Annotated[UserService, Depends(get_user_service)]
+
+@app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
+def signup(user_data: CustomerCreate, service: Users) -> Customer:
+    return service.create_customer(user_data)
 
 
 @app.exception_handler(UserCustomerNotFoundError)
@@ -151,6 +155,10 @@ async def invalid_amount_handler(_request: Request, _exception: InvalidAmountErr
 @app.exception_handler(InsufficientFundsError)
 async def insufficient_funds_handler(_request: Request, _exception: InsufficientFundsError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
+
+@app.exception_handler(EmailAlreadyExistsError)
+async def email_already_exists_handler(_request: Request, _exception: EmailAlreadyExistsError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "An account with this email already exists"})
 
 
 @app.get("/", tags=["health"])

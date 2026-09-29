@@ -345,6 +345,63 @@ def test_deleted_customer_cannot_reuse_session(client):
         "email": "customer@example.com", "password": "test-password",
     }).status_code == 401
 
+def test_signup_customer_can_login_but_cannot_create_admin(client):
+    signup_data = {
+        "name": "Signup Customer",
+        "email": "signup@example.com",
+        "password": "signup-test-password",
+        "address": "Delhi",
+    }
+
+    response = client.post("/api/signup", json=signup_data)
+
+    assert response.status_code == 201
+    customer = response.json()
+    assert customer["email"] == signup_data["email"]
+    assert "password" not in customer
+    assert "password_hash" not in customer
+    assert "admin" not in customer
+
+    headers = login_headers(
+        client,
+        email=signup_data["email"],
+        password=signup_data["password"],
+    )
+
+    response = client.patch(
+        f"/api/customers/{customer['user_id']}",
+        json={"address": "Mumbai"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    response = client.post(
+        "/api/admins",
+        json={
+            "name": "Attempted Admin",
+            "email": "attempted-admin@example.com",
+            "password": "another-test-password",
+            "address": "Delhi",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 403
+
+def test_signup_rejects_duplicate_email(client):
+    data = {
+        "name": "Signup Customer",
+        "email": "unique@example.com",
+        "password": "signup-test-password",
+        "address": "Delhi",
+    }
+
+    assert client.post("/api/signup", json=data).status_code == 201
+
+    data["email"] = "UNIQUE@example.com"
+    response = client.post("/api/signup", json=data)
+
+    assert response.status_code == 409
+
 
 @pytest.mark.parametrize("method", ["GET", "PATCH", "DELETE"])
 def test_missing_customer_returns_not_found(client, method):

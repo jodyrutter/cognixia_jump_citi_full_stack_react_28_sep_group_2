@@ -7,6 +7,7 @@ from bson.decimal128 import Decimal128
 from pymongo import ASCENDING, MongoClient, ReturnDocument
 from pymongo.collection import Collection
 from pymongo.database import Database
+from pymongo.errors import DuplicateKeyError
 from pwdlib import PasswordHash
 
 from .models import (
@@ -53,6 +54,9 @@ def _account_from_document(document: dict[str, Any]) -> Account:
         account_type=document["account_type"],
         balance=Decimal(str(document["balance"].to_decimal())),
     )
+
+class EmailAlreadyExistsError(Exception):
+    pass
 
 
 class MongoAccountStore:
@@ -233,7 +237,10 @@ class MongoUserStore:
             "password_hash": self._password_hasher.hash(user_data.password),
             "admin": admin,
         }
-        self._users.insert_one(document)
+        try:
+            self._users.insert_one(document)
+        except DuplicateKeyError as exc:
+            raise EmailAlreadyExistsError from exc
         return _user_from_document(document)
 
     def create_customer(self, user_data: CustomerCreate) -> Customer:
