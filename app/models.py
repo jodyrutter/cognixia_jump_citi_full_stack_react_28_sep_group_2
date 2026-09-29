@@ -7,13 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field
 AccountType = Literal["checking", "savings"]
 
 class User:
-    def __init__(self, userId, name):
+    def __init__(self, userId, name, email, address):
         self.userId = userId
         self.name = name
+        self.email = email
+        self.address = address
     def to_dict(self):
         return {
             "user_id": self.userId,
-            "name": self.name
+            "name": self.name,
+            "email": self.email,
+            "address" : self.address
         }
 
 class Customer(User):
