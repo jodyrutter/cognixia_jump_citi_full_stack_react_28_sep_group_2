@@ -97,7 +97,7 @@ def get_customer(customer_id: int, service: Users) -> Customer:
 
 
 @app.patch("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
-def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users, current_user:currentUser) -> Customer:
+def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users, current_user:CurrentUser) -> Customer:
     is_owner = current_user.user_id == customer_id
     is_admin = isinstance(current_user, Admin)
 
