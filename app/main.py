@@ -2,7 +2,8 @@ from typing import Annotated
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import auth
@@ -23,6 +24,13 @@ from .user_store import UserStore, get_user_store
 UserStorage = Annotated[UserStore, Depends(get_user_store)]
 
 app = FastAPI(title="Banking API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/api/login", tags=["auth"])
