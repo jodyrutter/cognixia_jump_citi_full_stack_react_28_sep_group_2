@@ -40,6 +40,40 @@ def test_customer_and_admin_endpoints() -> None:
     assert admin_response.json()["admin"] is True
 
 
+def test_customer_view_update_and_admin_delete() -> None:
+    create_response = client.post(
+        "/api/customers",
+        json={
+            "name": "Delete Me",
+            "email": "delete@example.com",
+            "password": "training-password",
+            "address": "Delhi",
+        },
+    )
+    customer_id = create_response.json()["user_id"]
+
+    get_response = client.get(f"/api/customers/{customer_id}")
+    assert get_response.status_code == 200
+
+    update_response = client.patch(
+        f"/api/customers/{customer_id}",
+        json={"address": "Bengaluru"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["address"] == "Bengaluru"
+
+    assert client.delete(f"/api/customers/{customer_id}").status_code == 401
+    assert client.delete(f"/api/customers/{customer_id}", headers={"X-User-Id": "1"}).status_code == 403
+    assert client.delete(f"/api/customers/{customer_id}", headers={"X-User-Id": "3"}).status_code == 204
+
+
+def test_customer_with_accounts_cannot_be_deleted() -> None:
+    response = client.delete("/api/customers/1", headers={"X-User-Id": "3"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Customer still owns accounts"}
+
+
 def test_account_crud_flow() -> None:
     create_response = client.post(
         "/api/accounts",
@@ -81,6 +115,20 @@ def test_account_requires_existing_customer() -> None:
             "account_type": "checking",
         },
     )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Customer not found"}
+
+
+def test_customer_accounts_endpoint() -> None:
+    response = client.get("/api/customers/1/accounts")
+
+    assert response.status_code == 200
+    assert all(account["owner_id"] == 1 for account in response.json())
+
+
+def test_customer_accounts_endpoint_rejects_unknown_customer() -> None:
+    response = client.get("/api/customers/999/accounts")
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Customer not found"}

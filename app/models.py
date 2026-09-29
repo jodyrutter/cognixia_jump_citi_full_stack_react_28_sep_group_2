@@ -29,6 +29,13 @@ class CustomerCreate(BaseModel):
     address: str
 
 
+class CustomerUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    password: str | None = None
+    address: str | None = None
+
+
 class AdminCreate(CustomerCreate):
     pass
 

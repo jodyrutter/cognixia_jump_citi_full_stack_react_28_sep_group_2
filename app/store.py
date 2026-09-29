@@ -24,25 +24,11 @@ class AccountStore:
         }
         self._next_id = 3
 
-        self._users: dict[int, User] = {
-            1: User(
-                user_id=1, 
-                name="John Doe", 
-                email="john.doe@example.com", 
-                address="123 Main St"
-            ),
-            2: User(
-                user_id=2, 
-                name="Jane Smith", 
-                email="jane.smith@example.com", 
-                address="456 Elm St"
-            ),
-        }
-
-    
-
     def list(self) -> list[Account]:
         return deepcopy(list(self._accounts.values()))
+
+    def list_for_owner(self, owner_id: int) -> list[Account]:
+        return deepcopy([account for account in self._accounts.values() if account.owner_id == owner_id])
 
     def get(self, account_id: int) -> Account | None:
         account = self._accounts.get(account_id)

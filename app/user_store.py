@@ -2,7 +2,7 @@ from copy import deepcopy
 from hashlib import pbkdf2_hmac
 from os import urandom
 
-from .models import Admin, AdminCreate, Customer, CustomerCreate
+from .models import Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, User
 
 
 class UserStore:
@@ -25,6 +25,9 @@ class UserStore:
         user = self._users.get(user_id)
         return deepcopy(user) if isinstance(user, Customer) else None
 
+    def get_user(self, user_id: int) -> User | None:
+        return deepcopy(self._users.get(user_id))
+
     def create_customer(self, user_data: CustomerCreate) -> Customer:
         customer = Customer(user_id=self._next_id, **user_data.model_dump(exclude={"password"}))
         self._users[customer.user_id] = customer
@@ -38,6 +41,25 @@ class UserStore:
         self._password_hashes[admin.user_id] = self._hash_password(user_data.password)
         self._next_id += 1
         return deepcopy(admin)
+
+    def update_customer(self, user_id: int, user_data: CustomerUpdate) -> Customer | None:
+        customer = self._users.get(user_id)
+        if not isinstance(customer, Customer):
+            return None
+
+        updated_customer = customer.model_copy(update=user_data.model_dump(exclude_unset=True, exclude={"password"}))
+        self._users[user_id] = updated_customer
+        if user_data.password is not None:
+            self._password_hashes[user_id] = self._hash_password(user_data.password)
+        return deepcopy(updated_customer)
+
+    def delete_customer(self, user_id: int) -> bool:
+        user = self._users.get(user_id)
+        if not isinstance(user, Customer):
+            return False
+        del self._users[user_id]
+        self._password_hashes.pop(user_id, None)
+        return True
 
     @staticmethod
     def _hash_password(password: str) -> str:

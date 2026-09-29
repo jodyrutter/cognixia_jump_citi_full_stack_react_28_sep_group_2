@@ -1,9 +1,9 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request, Response, status
+from fastapi import Depends, FastAPI, Header, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from .models import Admin, AdminCreate, Account, AccountCreate, AccountUpdate, Customer, CustomerCreate, MoneyRequest
+from .models import Admin, AdminCreate, Account, AccountCreate, AccountUpdate, Customer, CustomerCreate, CustomerUpdate, MoneyRequest
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
@@ -12,6 +12,11 @@ from .services.account_service import (
     InvalidAmountError,
 )
 from .services.user_service import UserService
+from .services.user_service import (
+    AdminRequiredError,
+    AuthenticationRequiredError,
+    CustomerHasAccountsError,
+)
 from .store import AccountStore
 from .user_store import UserStore
 
@@ -31,11 +36,19 @@ def get_account_service() -> AccountService:
 
 
 def get_user_service() -> UserService:
-    return UserService(user_store)
+    return UserService(user_store, account_store)
+
+
+def require_admin_user(
+    user_id: Annotated[int | None, Header(alias="X-User-Id")] = None,
+    service: UserService = Depends(get_user_service),
+) -> Admin:
+    return service.require_admin(user_id)
 
 
 Service = Annotated[AccountService, Depends(get_account_service)]
 Users = Annotated[UserService, Depends(get_user_service)]
+AdminUser = Annotated[Admin, Depends(require_admin_user)]
 
 
 @app.exception_handler(AccountNotFoundError)
@@ -46,6 +59,21 @@ async def account_not_found_handler(_request: Request, _exception: AccountNotFou
 @app.exception_handler(CustomerNotFoundError)
 async def customer_not_found_handler(_request: Request, _exception: CustomerNotFoundError) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": "Customer not found"})
+
+
+@app.exception_handler(CustomerHasAccountsError)
+async def customer_has_accounts_handler(_request: Request, _exception: CustomerHasAccountsError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Customer still owns accounts"})
+
+
+@app.exception_handler(AuthenticationRequiredError)
+async def authentication_required_handler(_request: Request, _exception: AuthenticationRequiredError) -> JSONResponse:
+    return JSONResponse(status_code=401, content={"detail": "Authentication required"})
+
+
+@app.exception_handler(AdminRequiredError)
+async def admin_required_handler(_request: Request, _exception: AdminRequiredError) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": "Admin access required"})
 
 
 @app.exception_handler(InvalidAmountError)
@@ -71,6 +99,27 @@ def list_customers(service: Users) -> list[Customer]:
 @app.post("/api/customers", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["users"])
 def create_customer(user_data: CustomerCreate, service: Users) -> Customer:
     return service.create_customer(user_data)
+
+
+@app.get("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
+def get_customer(customer_id: int, service: Users) -> Customer:
+    return service.get_customer(customer_id)
+
+
+@app.patch("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
+def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users) -> Customer:
+    return service.update_customer(customer_id, user_data)
+
+
+@app.delete("/api/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["users"])
+def delete_customer(customer_id: int, _admin: AdminUser, service: Users) -> Response:
+    service.delete_customer(customer_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get("/api/customers/{customer_id}/accounts", response_model=list[Account], tags=["users"])
+def list_customer_accounts(customer_id: int, service: Service) -> list[Account]:
+    return service.list_customer_accounts(customer_id)
 
 
 @app.get("/api/admins", response_model=list[Admin], tags=["users"])
