@@ -97,7 +97,15 @@ def get_customer(customer_id: int, service: Users) -> Customer:
 
 
 @app.patch("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
-def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users) -> Customer:
+def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users, current_user:currentUser) -> Customer:
+    is_owner = current_user.user_id == customer_id
+    is_admin = isinstance(current_user, Admin)
+
+    if not is_owner and not is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only update your own profile",
+        )
     return service.update_customer(customer_id, user_data)
 
 
