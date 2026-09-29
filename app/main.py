@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from . import auth
 from .auth import AdminUser, CurrentUser, require_admin
-from .models import Account, AccountCreate, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate
+from .models import Account, AccountCreate, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
@@ -16,7 +16,8 @@ from .services.account_service import (
     InvalidAmountError,
 )
 from .store import AccountStore
-from .services.user_service import UserService
+from .services.user_service import UserService, CustomerHasAccountsError
+from .services.user_service import CustomerNotFoundError as UserCustomerNotFoundError
 from .user_store import UserStore, get_user_store
 
 UserStorage = Annotated[UserStore, Depends(get_user_store)]
@@ -59,16 +60,25 @@ def get_account_service(
 Service = Annotated[AccountService, Depends(get_account_service)]
 
 
-def get_user_service(user_store: UserStorage) -> UserService:
-    return UserService(user_store)
+def get_user_service(
+    user_store: UserStorage,
+    store: Annotated[AccountStore, Depends(get_account_store)],
+) -> UserService:
+    return UserService(user_store, store)
 
 
 Users = Annotated[UserService, Depends(get_user_service)]
 
 
+@app.exception_handler(UserCustomerNotFoundError)
 @app.exception_handler(CustomerNotFoundError)
 async def customer_not_found_handler(_request: Request, _exception: CustomerNotFoundError) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": "Customer not found"})
+
+
+@app.exception_handler(CustomerHasAccountsError)
+async def customer_has_accounts_handler(_request: Request, _exception: CustomerHasAccountsError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Customer still owns accounts"})
 
 
 @app.get("/api/customers", response_model=list[Customer], tags=["users"])
@@ -79,6 +89,27 @@ def list_customers(service: Users) -> list[Customer]:
 @app.post("/api/customers", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["users"])
 def create_customer(user_data: CustomerCreate, service: Users) -> Customer:
     return service.create_customer(user_data)
+
+
+@app.get("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
+def get_customer(customer_id: int, service: Users) -> Customer:
+    return service.get_customer(customer_id)
+
+
+@app.patch("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
+def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users) -> Customer:
+    return service.update_customer(customer_id, user_data)
+
+
+@app.delete("/api/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["users"])
+def delete_customer(customer_id: int, _admin: AdminUser, service: Users) -> Response:
+    service.delete_customer(customer_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.get("/api/customers/{customer_id}/accounts", response_model=list[Account], tags=["users"])
+def list_customer_accounts(customer_id: int, service: Service) -> list[Account]:
+    return service.list_customer_accounts(customer_id)
 
 
 @app.get("/api/admins", response_model=list[Admin], tags=["users"])

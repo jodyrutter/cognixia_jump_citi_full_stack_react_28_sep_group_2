@@ -3,7 +3,7 @@ import os
 
 from pwdlib import PasswordHash
 
-from .models import Admin, AdminCreate, Customer, CustomerCreate, User
+from .models import Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, User
 
 
 class UserStore:
@@ -56,6 +56,26 @@ class UserStore:
         self._password_hashes[admin.user_id] = password_hash
         self._next_id += 1
         return deepcopy(admin)
+
+
+    def update_customer(self, user_id: int, user_data: CustomerUpdate) -> Customer | None:
+        customer = self._users.get(user_id)
+        if not isinstance(customer, Customer):
+            return None
+
+        updated_customer = customer.model_copy(update=user_data.model_dump(exclude_unset=True, exclude={"password"}))
+        self._users[user_id] = updated_customer
+        if user_data.password is not None:
+            self._password_hashes[user_id] = self._password_hasher.hash(user_data.password)
+        return deepcopy(updated_customer)
+
+    def delete_customer(self, user_id: int) -> bool:
+        user = self._users.get(user_id)
+        if not isinstance(user, Customer):
+            return False
+        del self._users[user_id]
+        self._password_hashes.pop(user_id, None)
+        return True
 
 
 user_store = UserStore()

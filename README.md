@@ -24,6 +24,10 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is at
 - `POST /api/accounts/{account_id}/withdraw` - withdraw money
 - `GET /api/customers` - list customers
 - `POST /api/customers` - create a customer
+- `GET /api/customers/{customer_id}` - get one customer
+- `PATCH /api/customers/{customer_id}` - update a customer
+- `DELETE /api/customers/{customer_id}` - delete a customer as an admin
+- `GET /api/customers/{customer_id}/accounts` - list accounts owned by a customer
 - `GET /api/admins` - list admins
 - `POST /api/admins` - create an admin
 

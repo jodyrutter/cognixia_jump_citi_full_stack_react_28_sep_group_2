@@ -249,3 +249,92 @@ def test_seed_users_without_passwords_cannot_login(client):
     for email in ("admin@example.com", "aarav@example.com", "maya@example.com"):
         response = client.post("/api/login", json={"email": email, "password": "test-password"})
         assert response.status_code == 401
+
+
+def test_customer_view_update_and_admin_delete(client) -> None:
+    create_response = client.post(
+        "/api/customers",
+        json={
+            "name": "Delete Me",
+            "email": "delete@example.com",
+            "password": "training-password",
+            "address": "Delhi",
+        },
+    )
+    customer_id = create_response.json()["user_id"]
+
+    get_response = client.get(f"/api/customers/{customer_id}")
+    assert get_response.status_code == 200
+
+    update_response = client.patch(
+        f"/api/customers/{customer_id}",
+        json={"address": "Bengaluru"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["address"] == "Bengaluru"
+
+    assert client.delete(f"/api/customers/{customer_id}").status_code == 401
+    assert client.delete(f"/api/customers/{customer_id}", headers=login_headers(client, "customer@example.com")).status_code == 403
+    assert client.delete(f"/api/customers/{customer_id}", headers=login_headers(client)).status_code == 204
+
+
+def test_customer_with_accounts_cannot_be_deleted(client) -> None:
+    response = client.delete("/api/customers/1", headers=login_headers(client))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Customer still owns accounts"}
+
+
+def test_customer_accounts_endpoint(client) -> None:
+    response = client.get("/api/customers/1/accounts")
+
+    assert response.status_code == 200
+    assert all(account["owner_id"] == 1 for account in response.json())
+
+
+def test_customer_accounts_endpoint_rejects_unknown_customer(client) -> None:
+    response = client.get("/api/customers/999/accounts")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Customer not found"}
+
+
+
+
+def test_customer_delete_rejects_unverified_user_id_header(client):
+    response = client.delete("/api/customers/5", headers={"X-User-Id": "3"})
+    assert response.status_code == 401
+    assert client.get("/api/customers/5").status_code == 200
+
+
+def test_customer_password_update_works_with_login(client):
+    response = client.patch("/api/customers/5", json={"password": "updated-password"})
+    assert response.status_code == 200
+    assert "password" not in response.json()
+    assert client.post("/api/login", json={
+        "email": "customer@example.com", "password": "test-password",
+    }).status_code == 401
+    response = client.post("/api/login", json={
+        "email": "customer@example.com", "password": "updated-password",
+    })
+    assert response.status_code == 200
+    headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
+    assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=headers).status_code == 200
+    assert client.delete("/api/accounts/1", headers=headers).status_code == 403
+
+
+def test_deleted_customer_cannot_reuse_session(client):
+    headers = login_headers(client, "customer@example.com")
+    assert client.delete("/api/customers/5", headers=login_headers(client)).status_code == 204
+    assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=headers).status_code == 401
+    assert client.post("/api/login", json={
+        "email": "customer@example.com", "password": "test-password",
+    }).status_code == 401
+
+
+@pytest.mark.parametrize("method", ["GET", "PATCH", "DELETE"])
+def test_missing_customer_returns_not_found(client, method):
+    response = client.request(method, "/api/customers/999", headers=login_headers(client),
+                              json={"address": "Delhi"} if method == "PATCH" else None)
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Customer not found"}
