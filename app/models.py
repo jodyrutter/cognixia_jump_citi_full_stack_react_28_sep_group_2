@@ -21,11 +21,24 @@ class Customer(User):
         super().__init__(userId, name)
         self.accountNumber = accountNumber
         self.balance = balance
+
+    def to_dict(self):
+        response = super().to_dict()
+        response["account_number"] = self.accountNumber
+        response["balance"] = self.balance
+
+        return response
         
 class Admin(User):
     def __init__(self, userId, name, admin: bool):
         super().__init__(userId, name)
         self.admin = admin
+
+    def to_dict(self):
+        response =  super().to_dict()
+        response["admin"] = self.admin
+
+        return response
 
 
 class AccountBase(BaseModel):
