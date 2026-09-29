@@ -18,9 +18,8 @@ def test_account_crud_flow() -> None:
         "/api/accounts",
         json={
             "account_number": "10000003",
-            "owner_name": "Rohan Mehta",
+            "owner_id": 3,
             "account_type": "checking",
-            "balance": "900.00",
         },
     )
 
@@ -29,10 +28,10 @@ def test_account_crud_flow() -> None:
 
     update_response = client.patch(
         f"/api/accounts/{account_id}",
-        json={"balance": "1100.00"},
+        json={"account_type": "savings"},
     )
     assert update_response.status_code == 200
-    assert update_response.json()["balance"] == "1100.00"
+    assert update_response.json()["account_type"] == "savings"
 
     delete_response = client.delete(f"/api/accounts/{account_id}")
     assert delete_response.status_code == 204

@@ -10,14 +10,14 @@ class AccountStore:
             1: Account(
                 id=1,
                 account_number="10000001",
-                owner_name="Aarav Sharma",
+                owner_id=1,
                 account_type="checking",
                 balance=Decimal("1250.00"),
             ),
             2: Account(
                 id=2,
                 account_number="10000002",
-                owner_name="Maya Patel",
+                owner_id=2,
                 account_type="savings",
                 balance=Decimal("4800.50"),
             ),
