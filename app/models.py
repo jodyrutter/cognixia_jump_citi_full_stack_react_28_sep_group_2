@@ -6,6 +6,27 @@ from pydantic import BaseModel, ConfigDict, Field
 
 AccountType = Literal["checking", "savings"]
 
+class User:
+    def __init__(self, userId, name):
+        self.userId = userId
+        self.name = name
+    def to_dict(self):
+        return {
+            "user_id": self.userId,
+            "name": self.name
+        }
+
+class Customer(User):
+    def __init__(self, userId, name, accountNumber, balance):
+        super().__init__(userId, name)
+        self.accountNumber = accountNumber
+        self.balance = balance
+        
+class Admin(User):
+    def __init__(self, userId, name, admin: bool):
+        super().__init__(userId, name)
+        self.admin = admin
+
 
 class AccountBase(BaseModel):
     owner_name: str = Field(min_length=1, max_length=100)
