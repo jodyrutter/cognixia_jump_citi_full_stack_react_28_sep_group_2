@@ -10,6 +10,8 @@ from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 from pwdlib import PasswordHash
 
+from fastapi import HTTPException
+
 from .models import (
     Account,
     AccountCreate,
@@ -140,6 +142,7 @@ class MongoAccountStore:
             {"id": account_id}, {"$set": updates}, return_document=ReturnDocument.AFTER
         )
         return _account_from_document(result) if result else None
+    
 
     def save(self, account: Account) -> Account:
         self._ensure_initialized()
@@ -171,8 +174,8 @@ class MongoUserStore:
             return
         self._users.create_index([("normalized_email", ASCENDING)], unique=True)
         seeds = [
-            {"user_id": 1, "name": "Aarav Sharma", "email": "aarav@example.com", "address": "Pune", "admin": False},
-            {"user_id": 2, "name": "Maya Patel", "email": "maya@example.com", "address": "Mumbai", "admin": False},
+            {"user_id": 1, "name": "Aarav Sharma", "email": "aarav@example.com", "address": "Pune", "admin": False, "password_hash": self._password_hasher.hash("password")},
+            {"user_id": 2, "name": "Maya Patel", "email": "maya@example.com", "address": "Mumbai", "admin": False, "password_hash": self._password_hasher.hash("123")},
             {"user_id": 3, "name": "System Admin", "email": "admin@example.com", "address": "Pune", "admin": True},
         ]
         for seed in seeds:
@@ -250,14 +253,34 @@ class MongoUserStore:
         return self._create_user(user_data, admin=True)  # type: ignore[return-value]
 
     def update_customer(self, user_id: int, user_data: CustomerUpdate) -> Customer | None:
+        email_error = HTTPException(
+            status_code=422,
+            detail="Invalid email address",
+        )
+
         self._ensure_initialized()
         customer = self.get_customer(user_id)
         if customer is None:
             return None
         updates = user_data.model_dump(exclude_unset=True, exclude={"password"})
+
+        # Ignore placeholder "string" values
+        updates = {
+            key: value
+            for key, value in updates.items()
+            if not (isinstance(value, str) and value.casefold() == "string")
+        }
+
         if "email" in updates:
-            updates["normalized_email"] = updates["email"].strip().casefold()
-        if user_data.password is not None:
+            email = updates["email"].strip()
+
+            if "@" not in email:
+                raise email_error
+
+            updates["email"] = email
+            updates["normalized_email"] = email.casefold()
+
+        if user_data.password is not None and user_data.password.casefold() != "string":
             updates["password_hash"] = self._password_hasher.hash(user_data.password)
         result = self._users.find_one_and_update(
             {"user_id": user_id, "admin": False}, {"$set": updates}, return_document=ReturnDocument.AFTER
