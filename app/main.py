@@ -121,7 +121,7 @@ async def customer_has_accounts_handler(_request: Request, _exception: CustomerH
 
 
 @app.get("/api/customers", response_model=list[Customer], tags=["users"])
-def list_customers(service: Users) -> list[Customer]:
+def list_customers(service: Users, _admin: AdminUser) -> list[Customer]:
     return service.list_customers()
 
 
@@ -131,7 +131,7 @@ def create_customer(user_data: CustomerCreate, service: Users) -> Customer:
 
 
 @app.get("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
-def get_customer(customer_id: int, service: Users) -> Customer:
+def get_customer(customer_id: int, service: Users, _admin: AdminUser) -> Customer:
     return service.get_customer(customer_id)
 
 
@@ -168,7 +168,7 @@ def list_customer_accounts(customer_id: int, service: Service, current_user: Cur
 
 
 @app.get("/api/admins", response_model=list[Admin], tags=["users"])
-def list_admins(service: Users) -> list[Admin]:
+def list_admins(service: Users, admin: AdminUser) -> list[Admin]:
     return service.list_admins()
 
 
@@ -203,12 +203,19 @@ def health_check() -> dict[str, str]:
 
 
 @app.get("/api/accounts", response_model=list[Account], tags=["accounts"])
-def list_accounts(service: Service) -> list[Account]:
+def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
     return service.list_accounts()
 
 
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def get_account(account_id: int, service: Service) -> Account:
+def get_account(account_id: int, service: Service, current_user: CurrentUser) -> Account:
+    account = service.get_account(account_id)
+    is_owner = current_user.user_id == account.owner_id
+    is_admin = isinstance(current_user, Admin)
+
+    if not is_owner and not is_admin:
+        raise HTTPException(status_code=403, detail="You can only view your own account")
+    
     return service.get_account(account_id)
 
 
@@ -225,13 +232,19 @@ def create_account(account_data: AccountOpenRequest, service: Service, current_u
 
 
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def update_account(
-    account_id: int, account_data: AccountUpdate, service: Service, current_user: CurrentUser,
-) -> Account:
-    if "balance" in account_data.model_fields_set:
+def update_account(account_id: int, account_data: AccountUpdate, service: Service, current_user: CurrentUser) -> Account:
+    account = service.get_account(account_id)
+    is_owner = current_user.user_id == account.owner_id
+    is_admin = isinstance(current_user, Admin)
+
+    if not is_owner and not is_admin:
+        raise HTTPException(status_code=403, detail="You can only update your own accounts")
+    
+    if is_owner and "balance" in account_data.model_fields_set:
         require_admin(current_user)
         if account_data.balance is None:
             raise HTTPException(status_code=422, detail="Balance cannot be null")
+    
     return service.update_account(account_id, account_data)
 
 
