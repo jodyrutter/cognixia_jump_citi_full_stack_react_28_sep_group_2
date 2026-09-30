@@ -222,7 +222,13 @@ class MongoUserStore:
         return _user_from_document(document)
 
     def _create_user(self, user_data: CustomerCreate | AdminCreate, admin: bool) -> User:
+        email_error = HTTPException(
+            status_code=422,
+            detail="Invalid email address",
+        )
         self._ensure_initialized()
+        if "@" not in user_data.email:
+            raise email_error
         counter = self._counters.find_one_and_update(
             {"_id": "users"},
             {"$inc": {"value": 1}},

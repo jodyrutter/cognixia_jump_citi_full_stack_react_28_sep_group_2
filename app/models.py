@@ -1,10 +1,11 @@
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 
 AccountType = Literal["checking", "savings"]
+NonBlankString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 class User(BaseModel):
@@ -23,17 +24,17 @@ class Admin(User):
 
 
 class CustomerCreate(BaseModel):
-    name: str
-    email: str
-    password: str
-    address: str
+    name: NonBlankString
+    email: NonBlankString
+    password: NonBlankString
+    address: NonBlankString
 
 
 class CustomerUpdate(BaseModel):
-    name: str | None = None
-    email: str | None = None
-    password: str | None = None
-    address: str | None = None
+    name: NonBlankString | None = None
+    email: NonBlankString | None = None
+    password: NonBlankString | None = None
+    address: NonBlankString | None = None
 
 
 class AdminCreate(CustomerCreate):
