@@ -1,4 +1,5 @@
 from decimal import Decimal
+from pymongo import ReturnDocument
 
 from ..models import Account, AccountCreate, AccountUpdate
 from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
@@ -55,19 +56,27 @@ class AccountService:
             raise AccountNotFoundError
 
     def deposit(self, account_id: int, amount: Decimal) -> Account:
-        account = self.get_account(account_id)
         self._validate_amount(amount)
-        updated_account = account.model_copy(update={"balance": account.balance + amount})
-        return self._store.save(updated_account)
+
+        account = self._store.deposit(account_id, amount)
+
+        if account is None:
+            raise AccountNotFoundError
+
+        return account
 
     def withdraw(self, account_id: int, amount: Decimal) -> Account:
-        account = self.get_account(account_id)
         self._validate_amount(amount)
-        if amount > account.balance:
+        
+        account = self._store.withdrawl(account_id, amount)
+        
+        if account is None:
+            if self._store.get(account_id) is None:
+                raise AccountNotFoundError
+
             raise InsufficientFundsError
 
-        updated_account = account.model_copy(update={"balance": account.balance - amount})
-        return self._store.save(updated_account)
+        return account
 
     @staticmethod
     def _validate_amount(amount: Decimal) -> None:
