@@ -227,16 +227,14 @@ def test_login_returns_signed_jwt(client):
     assert payload["jti"]
 
 def test_creation_cannot_set_balance(client):
-    response = client.post("/api/accounts", json={
-        "owner_id": 102, "account_type": "checking", "balance": "1000.00",
-    })
+    headers = login_headers(client, "customer@example.com")
+    response = client.post("/api/accounts", json={"account_type": "checking", "balance": "1000.00"}, headers=headers)
     assert response.status_code == 422
 
 
 def test_creation_cannot_set_account_number(client):
-    response = client.post("/api/accounts", json={
-        "owner_id": 1, "account_type": "checking", "account_number": "12345678",
-    })
+    headers = login_headers(client, "customer@example.com")
+    response = client.post("/api/accounts", json={"account_type": "checking", "account_number": "12345678"}, headers=headers)
     assert response.status_code == 422
 
 
@@ -244,7 +242,13 @@ def test_account_number_generation_retries_existing_number(client, monkeypatch):
     from app import mongo_store
 
     assert client.get("/api/accounts").status_code == 200
+
+    database = get_database()
+    result = database["accounts"].update_one({"id": 1}, {"$set": {"account_number": "100000000001"}})
+    assert result.matched_count == 1
+
     customer_headers = login_headers(client, "customer@example.com")
+    
     candidates = iter([1, 9])
     monkeypatch.setattr(mongo_store.secrets, "randbelow", lambda _limit: next(candidates))
 
