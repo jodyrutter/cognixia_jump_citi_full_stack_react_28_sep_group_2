@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from . import auth
 from .auth import AdminUser, CurrentUser, require_admin, logout_session
-from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
+from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
@@ -76,6 +76,37 @@ def logout() -> Response:
 @app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
 def signup(user_data: CustomerCreate, service: Users) -> Customer:
     return service.create_customer(user_data)
+
+
+@app.get("/api/me", response_model=Me, tags=["auth"])
+def get_me(current_user: CurrentUser) -> Me:
+    return Me(
+        user_id=current_user.user_id,
+        name=current_user.name,
+        email=current_user.email,
+        address=current_user.address,
+        role="admin" if isinstance(current_user, Admin) else "customer",
+    )
+
+
+@app.patch("/api/me", response_model=Customer, tags=["auth"])
+def update_me(user_data: CustomerUpdate, service: Users, current_user: CurrentUser) -> Customer:
+    if not isinstance(current_user, Customer):
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers can update their own profile here",
+        )
+    return service.update_customer(current_user.user_id, user_data)
+
+
+@app.get("/api/me/accounts", response_model=list[Account], tags=["accounts"])
+def list_my_accounts(service: Service, current_user: CurrentUser) -> list[Account]:
+    if not isinstance(current_user, Customer):
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers have accounts",
+        )
+    return service.list_customer_accounts(current_user.user_id)
 
 
 @app.exception_handler(UserCustomerNotFoundError)
@@ -210,11 +241,23 @@ def delete_account(account_id: int, service: Service, admin: AdminUser) -> Respo
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def _authorize_transaction(account_id: int, current_user: CurrentUser, service: AccountService) -> None:
+    if isinstance(current_user, Admin):
+        return
+    if not isinstance(current_user, Customer):
+        raise HTTPException(status_code=403, detail="Authentication required")
+    account = service.get_account(account_id)
+    if account.owner_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own account")
+
+
 @app.post("/api/accounts/{account_id}/deposit", response_model=Account, tags=["transactions"])
-def deposit(account_id: int, request: MoneyRequest, service: Service, admin: AdminUser) -> Account:
+def deposit(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
+    _authorize_transaction(account_id, current_user, service)
     return service.deposit(account_id, request.amount)
 
 
 @app.post("/api/accounts/{account_id}/withdraw", response_model=Account, tags=["transactions"])
-def withdraw(account_id: int, request: MoneyRequest, service: Service, admin: AdminUser) -> Account:
+def withdraw(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
+    _authorize_transaction(account_id, current_user, service)
     return service.withdraw(account_id, request.amount)

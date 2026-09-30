@@ -1,5 +1,4 @@
 import { authStore } from "../auth/authStore";
-import { actingAsStore } from "../auth/actingAsStore";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
@@ -15,13 +14,11 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const session = authStore.get();
-  const actingAs = actingAsStore.get();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...((init?.headers as Record<string, string>) ?? {}),
   };
   if (session) headers["Authorization"] = `Bearer ${session.token}`;
-  if (actingAs) headers["X-User-Id"] = String(actingAs.user_id);
 
   let response: Response;
   try {

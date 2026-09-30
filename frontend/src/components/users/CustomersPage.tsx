@@ -85,8 +85,8 @@ export function CustomersPage({ onUsersChanged }: Props) {
       showToast(`Customer ${target.name} deleted`);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 401) showToast("Authentication required — set 'Acting as' in the top bar.");
-        else if (err.status === 403) showToast("Admin access required — switch to an admin in the top bar.");
+        if (err.status === 401) showToast("Your session has expired. Please sign in again.");
+        else if (err.status === 403) showToast("Admin access required.");
         else if (err.status === 409) showToast(`${target.name} still owns accounts. Delete or reassign them first.`);
         else showToast(err.detail ?? err.message);
       } else {

@@ -21,13 +21,14 @@ interface Props {
   accounts: Account[];
   customersById: Map<number, Customer>;
   loading: boolean;
-  onEdit: (a: Account) => void;
-  onDelete: (a: Account) => void;
+  showOwner?: boolean;
+  onEdit?: (a: Account) => void;
+  onDelete?: (a: Account) => void;
   onDeposit: (a: Account) => void;
   onWithdraw: (a: Account) => void;
 }
 
-export function AccountsTable({ accounts, customersById, loading, onEdit, onDelete, onDeposit, onWithdraw }: Props) {
+export function AccountsTable({ accounts, customersById, loading, showOwner = true, onEdit, onDelete, onDeposit, onWithdraw }: Props) {
   if (loading) {
     return (
       <div className="table-wrap">
@@ -36,7 +37,7 @@ export function AccountsTable({ accounts, customersById, loading, onEdit, onDele
             <tr>
               <th style={{ width: 60 }}>ID</th>
               <th style={{ width: 160 }}>Account #</th>
-              <th>Owner</th>
+              {showOwner && <th>Owner</th>}
               <th style={{ width: 110 }}>Type</th>
               <th className="right" style={{ width: 140 }}>Balance</th>
               <th style={{ width: 180 }} />
@@ -47,7 +48,7 @@ export function AccountsTable({ accounts, customersById, loading, onEdit, onDele
               <tr key={i} className="skeleton-row">
                 <td><span className="skel" style={{ width: 38 }} /></td>
                 <td><span className="skel" style={{ width: 100 }} /></td>
-                <td><span className="skel" style={{ width: 180 }} /></td>
+                {showOwner && <td><span className="skel" style={{ width: 180 }} /></td>}
                 <td><span className="skel" style={{ width: 70 }} /></td>
                 <td className="balance"><span className="skel" style={{ width: 80 }} /></td>
                 <td />
@@ -66,7 +67,7 @@ export function AccountsTable({ accounts, customersById, loading, onEdit, onDele
           <tr>
             <th style={{ width: 60 }}>ID</th>
             <th style={{ width: 160 }}>Account #</th>
-            <th>Owner</th>
+            {showOwner && <th>Owner</th>}
             <th style={{ width: 110 }}>Type</th>
             <th className="right" style={{ width: 140 }}>Balance</th>
             <th style={{ width: 180 }} />
@@ -81,17 +82,19 @@ export function AccountsTable({ accounts, customersById, loading, onEdit, onDele
               <tr key={a.id}>
                 <td className="id">#{String(a.id).padStart(4, "0")}</td>
                 <td className="acct">{a.account_number}</td>
-                <td className="owner">
-                  <span className="avatar-sm" style={{ background: ownerColor(a.owner_id) }}>
-                    {initials}
-                  </span>
-                  {displayName}
-                  {owner && (
-                    <span style={{ color: "var(--muted)", marginLeft: 8, fontSize: 12 }}>
-                      · {owner.email}
+                {showOwner && (
+                  <td className="owner">
+                    <span className="avatar-sm" style={{ background: ownerColor(a.owner_id) }}>
+                      {initials}
                     </span>
-                  )}
-                </td>
+                    {displayName}
+                    {owner && (
+                      <span style={{ color: "var(--muted)", marginLeft: 8, fontSize: 12 }}>
+                        · {owner.email}
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td>
                   <span className={`type-badge type-${a.account_type}`}>
                     {a.account_type[0].toUpperCase() + a.account_type.slice(1)}
@@ -112,18 +115,22 @@ export function AccountsTable({ accounts, customersById, loading, onEdit, onDele
                         <polyline points="19 12 12 19 5 12" />
                       </svg>
                     </button>
-                    <button className="row-icon-btn" title="Edit" onClick={() => onEdit(a)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                    <button className="row-icon-btn danger" title="Delete" onClick={() => onDelete(a)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                      </svg>
-                    </button>
+                    {onEdit && (
+                      <button className="row-icon-btn" title="Edit" onClick={() => onEdit(a)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button className="row-icon-btn danger" title="Delete" onClick={() => onDelete(a)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+                        </svg>
+                      </button>
+                    )}
                   </span>
                 </td>
               </tr>

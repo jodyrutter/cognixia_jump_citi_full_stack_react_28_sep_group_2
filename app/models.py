@@ -63,6 +63,14 @@ class AdminCreate(CustomerCreate):
     pass
 
 
+class Me(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    address: str
+    role: Literal["admin", "customer"]
+
+
 class AccountCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

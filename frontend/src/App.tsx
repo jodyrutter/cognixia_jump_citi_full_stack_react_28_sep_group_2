@@ -1,49 +1,55 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import type { Page } from "./components/layout/Sidebar";
 import { AccountsPage } from "./components/accounts/AccountsPage";
+import { MyAccountsPage } from "./components/accounts/MyAccountsPage";
 import { CustomersPage } from "./components/users/CustomersPage";
 import { AdminsPage } from "./components/users/AdminsPage";
+import { MyProfilePage } from "./components/users/MyProfilePage";
 import { LoginScreen } from "./components/auth/LoginScreen";
-import { usersApi } from "./api/users";
-import { actingAsStore } from "./auth/actingAsStore";
+import { authApi } from "./api/auth";
 import { useAuth } from "./auth/useAuth";
-import type { Admin, Customer } from "./types/customer";
+import { useCurrentUser } from "./auth/useCurrentUser";
 
 export default function App() {
-  const { session } = useAuth();
-  const [page, setPage] = useState<Page>("accounts");
-  const [admins, setAdmins] = useState<Admin[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-
-  const refreshUsers = useCallback(async () => {
-    try {
-      const [nextAdmins, nextCustomers] = await Promise.all([
-        usersApi.listAdmins(),
-        usersApi.listCustomers(),
-      ]);
-      setAdmins(nextAdmins);
-      setCustomers(nextCustomers);
-      if (!actingAsStore.get() && nextAdmins.length > 0) {
-        const first = nextAdmins[0];
-        actingAsStore.set({ user_id: first.user_id, name: first.name, role: "admin" });
-      }
-    } catch {
-      /* TopBar handles the empty case with a "Loading users…" placeholder */
-    }
-  }, []);
+  const { session, logout } = useAuth();
+  const { me, loading, refresh } = useCurrentUser(session);
+  const [page, setPage] = useState<Page | null>(null);
 
   useEffect(() => {
-    if (session) refreshUsers();
-  }, [refreshUsers, session]);
+    if (me) setPage((current) => current ?? (me.role === "admin" ? "accounts" : "my-accounts"));
+    if (!me) setPage(null);
+  }, [me]);
+
+  async function handleLogout() {
+    try {
+      await authApi.logout();
+    } catch {
+      /* best effort — clear the local session regardless */
+    } finally {
+      logout();
+    }
+  }
 
   if (!session) return <LoginScreen />;
 
+  if (!me || page === null) {
+    return (
+      <div className="app">
+        <div className="main" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+          {loading ? "Loading your account…" : "Couldn't load your account."}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <AppShell page={page} onNavigate={setPage} admins={admins} customers={customers}>
-      {page === "accounts" && <AccountsPage />}
-      {page === "customers" && <CustomersPage onUsersChanged={refreshUsers} />}
-      {page === "admins" && <AdminsPage onUsersChanged={refreshUsers} />}
+    <AppShell page={page} onNavigate={setPage} me={me} onLogout={handleLogout}>
+      {me.role === "admin" && page === "accounts" && <AccountsPage />}
+      {me.role === "admin" && page === "customers" && <CustomersPage />}
+      {me.role === "admin" && page === "admins" && <AdminsPage />}
+      {me.role === "customer" && page === "my-accounts" && <MyAccountsPage me={me} />}
+      {me.role === "customer" && page === "my-profile" && <MyProfilePage me={me} onProfileUpdated={() => refresh()} />}
     </AppShell>
   );
 }

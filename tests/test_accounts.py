@@ -547,3 +547,89 @@ def test_missing_customer_returns_not_found(client, method):
                               json={"address": "Delhi"} if method == "PATCH" else None)
     assert response.status_code == 404
     assert response.json() == {"detail": "Customer not found"}
+
+
+def test_me_requires_authentication(client):
+    assert client.get("/api/me").status_code == 401
+
+
+def test_me_returns_own_profile_for_customer(client):
+    headers = login_headers(client, "aarav@example.com", "password")
+    response = client.get("/api/me", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"user_id": 1, "name": "Aarav Sharma", "email": "aarav@example.com", "address": "Pune", "role": "customer"}
+
+
+def test_me_returns_own_profile_for_admin(client):
+    response = client.get("/api/me", headers=login_headers(client))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "admin"
+    assert body["email"] == "test-admin@example.com"
+
+
+def test_update_me_changes_own_profile_without_customer_id(client):
+    headers = login_headers(client, "customer@example.com")
+    response = client.patch("/api/me", json={"address": "New Address"}, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["address"] == "New Address"
+    assert client.get("/api/customers/5").json()["address"] == "New Address"
+
+
+def test_update_me_rejects_admin(client):
+    response = client.patch("/api/me", json={"address": "New Address"}, headers=login_headers(client))
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Only customers can update their own profile here"}
+
+
+def test_my_accounts_lists_only_own_accounts_without_customer_id(client):
+    headers = login_headers(client, "aarav@example.com", "password")
+    response = client.get("/api/me/accounts", headers=headers)
+
+    assert response.status_code == 200
+    assert all(account["owner_id"] == 1 for account in response.json())
+    assert len(response.json()) == 1
+
+
+def test_my_accounts_requires_authentication(client):
+    assert client.get("/api/me/accounts").status_code == 401
+
+
+def test_my_accounts_rejects_admin(client):
+    response = client.get("/api/me/accounts", headers=login_headers(client))
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Only customers have accounts"}
+
+
+@pytest.mark.parametrize("operation", ["deposit", "withdraw"])
+def test_customer_can_transact_on_own_account(client, operation):
+    headers = login_headers(client, "aarav@example.com", "password")
+    response = client.post(f"/api/accounts/1/{operation}", json={"amount": "10.00"}, headers=headers)
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("operation", ["deposit", "withdraw"])
+def test_customer_cannot_transact_on_other_customer_account(client, operation):
+    headers = login_headers(client, "aarav@example.com", "password")
+    response = client.post(f"/api/accounts/2/{operation}", json={"amount": "10.00"}, headers=headers)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "You can only manage your own account"}
+
+
+@pytest.mark.parametrize("operation", ["deposit", "withdraw"])
+def test_admin_can_still_transact_on_any_account(client, operation):
+    response = client.post(f"/api/accounts/1/{operation}", json={"amount": "10.00"}, headers=login_headers(client))
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("operation", ["deposit", "withdraw"])
+def test_transact_requires_authentication(client, operation):
+    response = client.post(f"/api/accounts/1/{operation}", json={"amount": "10.00"})
+    assert response.status_code == 401

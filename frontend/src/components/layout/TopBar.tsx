@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { useActingAs } from "../../auth/useActingAs";
-import type { Admin, Customer } from "../../types/customer";
+import type { Me } from "../../types/me";
 
 interface Props {
-  admins: Admin[];
-  customers: Customer[];
+  me: Me | null;
+  onLogout: () => void;
 }
 
 function initialsFor(name: string) {
@@ -13,8 +12,7 @@ function initialsFor(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function TopBar({ admins, customers }: Props) {
-  const { actingAs, setActingAs } = useActingAs();
+export function TopBar({ me, onLogout }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -34,8 +32,8 @@ export function TopBar({ admins, customers }: Props) {
     };
   }, [open]);
 
-  const label = actingAs?.name ?? "No user";
-  const roleLabel = actingAs?.role === "admin" ? "Admin" : actingAs?.role === "customer" ? "Customer" : "None";
+  const label = me?.name ?? "…";
+  const roleLabel = me?.role === "admin" ? "Admin" : me?.role === "customer" ? "Customer" : "";
 
   return (
     <header className="topbar">
@@ -70,10 +68,10 @@ export function TopBar({ admins, customers }: Props) {
         </button>
         <div className="user-menu-wrap" ref={wrapRef}>
           <button className="user-chip" onClick={() => setOpen((v) => !v)}>
-            <div className="avatar">{actingAs ? initialsFor(actingAs.name) : "?"}</div>
+            <div className="avatar">{me ? initialsFor(me.name) : "?"}</div>
             <div className="who">
               <div className="name">{label}</div>
-              <div className="role">Acting as · {roleLabel}</div>
+              <div className="role">{roleLabel}</div>
             </div>
             <svg className="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
@@ -81,64 +79,23 @@ export function TopBar({ admins, customers }: Props) {
           </button>
           <div className={`user-menu${open ? " open" : ""}`} role="menu">
             <div className="menu-header">
-              <div className="who">Impersonate user</div>
-              <div className="em">Sent as X-User-Id on requests</div>
+              <div className="who">{me?.name ?? "Signed in"}</div>
+              <div className="em">{me?.email}</div>
             </div>
-            {admins.length === 0 && customers.length === 0 && (
-              <div className="menu-item" style={{ color: "var(--muted)" }}>Loading users…</div>
-            )}
-            {admins.length > 0 && (
-              <>
-                <div className="menu-section">Admins</div>
-                {admins.map((a) => (
-                  <button
-                    key={`admin-${a.user_id}`}
-                    className={`menu-item${actingAs?.user_id === a.user_id ? " selected" : ""}`}
-                    onClick={() => {
-                      setActingAs({ user_id: a.user_id, name: a.name, role: "admin" });
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="menu-avatar" style={{ background: "#003b70" }}>{initialsFor(a.name)}</span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ display: "block", fontWeight: 600 }}>{a.name}</span>
-                      <span style={{ display: "block", fontSize: 11, color: "var(--muted)" }}>{a.email}</span>
-                    </span>
-                    {actingAs?.user_id === a.user_id && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </>
-            )}
-            {customers.length > 0 && (
-              <>
-                <div className="menu-section">Customers</div>
-                {customers.map((c) => (
-                  <button
-                    key={`customer-${c.user_id}`}
-                    className={`menu-item${actingAs?.user_id === c.user_id ? " selected" : ""}`}
-                    onClick={() => {
-                      setActingAs({ user_id: c.user_id, name: c.name, role: "customer" });
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="menu-avatar" style={{ background: "#e02020" }}>{initialsFor(c.name)}</span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ display: "block", fontWeight: 600 }}>{c.name}</span>
-                      <span style={{ display: "block", fontSize: 11, color: "var(--muted)" }}>{c.email}</span>
-                    </span>
-                    {actingAs?.user_id === c.user_id && (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </>
-            )}
+            <button
+              className="menu-item"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span style={{ flex: 1, fontWeight: 600 }}>Log out</span>
+            </button>
           </div>
         </div>
       </div>
