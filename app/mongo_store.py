@@ -180,7 +180,7 @@ class MongoAccountStore:
 
     def withdrawl(self, account_id: int, amount: Decimal) -> Account | None:
         self._ensure_initialized()
-        document = self._accounts.find_one_and_update({"id": account_id, "balance": {"gte": Decimal128(str(amount))}},
+        document = self._accounts.find_one_and_update({"id": account_id, "balance": {"$gte": Decimal128(str(amount))}},
                                                       {"$inc": {"balance": Decimal128(str(-amount))}},return_document=ReturnDocument.AFTER)
         return _account_from_document(document) if document else None
 
