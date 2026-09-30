@@ -72,6 +72,7 @@ class MongoAccountStore:
         if self._initialized:
             return
         self._accounts.create_index([("account_number", ASCENDING)], unique=True)
+        self._accounts.create_index([("owner_id", ASCENDING), ("id", ASCENDING)])
         seeds = [
             {
                 "id": 1,

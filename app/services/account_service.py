@@ -31,7 +31,7 @@ class AccountService:
     def list_customer_accounts(self, customer_id: int) -> list[Account]:
         if self._user_store.get_customer(customer_id) is None:
             raise CustomerNotFoundError
-        return [account for account in self._store.list_accounts() if account.owner_id == customer_id]
+        return self._store.list_for_owner(customer_id)
 
     def get_account(self, account_id: int) -> Account:
         account = self._store.get(account_id)
