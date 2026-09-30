@@ -23,6 +23,7 @@ from app.main import app
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.delenv("BANK_ADMIN_PASSWORD_HASH", raising=False)
+    monkeypatch.setattr(app.state.limiter, "enabled", False)
     database: Database = get_database()
     database.client.drop_database(database.name)
     store = MongoAccountStore(database)
@@ -630,6 +631,56 @@ def test_my_accounts_rejects_admin(client):
     assert response.status_code == 403
     assert response.json() == {"detail": "Only customers have accounts"}
 
+
+def test_login_rate_limit(client, monkeypatch):
+    limiter = app.state.limiter
+    monkeypatch.setattr(limiter, "enabled", True)
+    limiter.reset()
+
+    credentials = {"email": "unknown@example.com", "password": "wrong-password"}
+
+    try:
+        for _ in range(5):
+            response = client.post("/api/login", json=credentials)
+            assert response.status_code == 401
+
+        response = client.post("/api/login", json=credentials)
+        assert response.status_code == 429
+    finally:
+        limiter.reset()
+
+@pytest.mark.parametrize(
+    "routes",
+    [
+        ["/api/signup", "/api/customers",
+         "/api/signup", "/api/customers"],
+        ["/api/customers", "/api/signup",
+         "/api/customers", "/api/signup"],
+    ],
+)
+
+def test_registration_routes_share_rate_limit(
+    client, monkeypatch, routes
+):
+    limiter = app.state.limiter
+    monkeypatch.setattr(limiter, "enabled", True)
+    limiter.reset()
+
+    try:
+        for index, route in enumerate(routes):
+            signup_data = {
+                "name": "Signup Customer",
+                "email": f"signup-{index}@example.com",
+                "password": "Signup-test-password1!",
+                "address": "Delhi",
+            }
+
+            response = client.post(route, json=signup_data)
+
+            expected_status = 201 if index < 3 else 429
+            assert response.status_code == expected_status, response.text
+    finally:
+        limiter.reset()
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])
 def test_customer_can_transact_on_own_account(client, operation):

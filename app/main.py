@@ -6,6 +6,10 @@ from fastapi import Depends, FastAPI, HTTPException, Header, Request, Response, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
 from . import auth
 from .auth import AdminUser, CurrentUser, require_admin, logout_session
 from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
@@ -31,9 +35,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+registration_limit = limiter.shared_limit("3/minute",scope="registration")
+
 
 @app.post("/api/login", tags=["auth"])
-def login(credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+@limiter.limit("5/minute")
+def login(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
     user = user_store.authenticate(credentials.email, credentials.password)
 
     if user is None:
@@ -74,7 +85,8 @@ def logout() -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
-def signup(user_data: CustomerCreate, service: Users) -> Customer:
+@registration_limit
+def signup(request: Request, user_data: CustomerCreate, service: Users) -> Customer:
     return service.create_customer(user_data)
 
 
@@ -126,7 +138,8 @@ def list_customers(service: Users, _admin: AdminUser) -> list[Customer]:
 
 
 @app.post("/api/customers", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["users"])
-def create_customer(user_data: CustomerCreate, service: Users) -> Customer:
+@registration_limit
+def create_customer(request: Request, user_data: CustomerCreate, service: Users) -> Customer:
     return service.create_customer(user_data)
 
 
