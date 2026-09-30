@@ -124,7 +124,15 @@ def delete_customer(customer_id: int, _admin: AdminUser, service: Users) -> Resp
 
 
 @app.get("/api/customers/{customer_id}/accounts", response_model=list[Account], tags=["users"])
-def list_customer_accounts(customer_id: int, service: Service) -> list[Account]:
+def list_customer_accounts(customer_id: int, service: Service, current_user: CurrentUser) -> list[Account]:
+    is_owner = current_user.user_id == customer_id
+    is_admin = isinstance(current_user, Admin)
+
+    if not is_owner and not is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only view your own accounts",
+        )
     return service.list_customer_accounts(customer_id)
 
 

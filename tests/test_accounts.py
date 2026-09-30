@@ -380,17 +380,39 @@ def test_customer_with_accounts_cannot_be_deleted(client) -> None:
 
 
 def test_customer_accounts_endpoint(client) -> None:
-    response = client.get("/api/customers/1/accounts")
+    response = client.get("/api/customers/1/accounts", headers=login_headers(client))
 
     assert response.status_code == 200
     assert all(account["owner_id"] == 1 for account in response.json())
 
 
 def test_customer_accounts_endpoint_rejects_unknown_customer(client) -> None:
-    response = client.get("/api/customers/999/accounts")
+    response = client.get("/api/customers/999/accounts", headers=login_headers(client))
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Customer not found"}
+
+
+def test_customer_accounts_endpoint_owner_can_view_own_accounts(client) -> None:
+    headers = login_headers(client, "aarav@example.com", "password")
+    response = client.get("/api/customers/1/accounts", headers=headers)
+
+    assert response.status_code == 200
+    assert all(account["owner_id"] == 1 for account in response.json())
+
+
+def test_customer_accounts_endpoint_rejects_other_customer(client) -> None:
+    headers = login_headers(client, "maya@example.com", "123")
+    response = client.get("/api/customers/1/accounts", headers=headers)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "You can only view your own accounts"}
+
+
+def test_customer_accounts_endpoint_requires_authentication(client) -> None:
+    response = client.get("/api/customers/1/accounts")
+
+    assert response.status_code == 401
 
 
 
