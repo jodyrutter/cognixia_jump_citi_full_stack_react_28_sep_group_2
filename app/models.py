@@ -1,11 +1,23 @@
+import string
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 
 AccountType = Literal["checking", "savings"]
 NonBlankString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+MIN_PASSWORD_LENGTH = 8
+_ALPHANUMERIC = frozenset(string.ascii_letters + string.digits)
+
+
+def _validate_password_strength(password: str) -> str:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
+    if all(char in _ALPHANUMERIC for char in password):
+        raise ValueError("Password must contain at least one special character")
+    return password
 
 
 class User(BaseModel):
@@ -29,12 +41,22 @@ class CustomerCreate(BaseModel):
     password: NonBlankString
     address: NonBlankString
 
+    @field_validator("password")
+    @classmethod
+    def _password_strength(cls, value: str) -> str:
+        return _validate_password_strength(value)
+
 
 class CustomerUpdate(BaseModel):
     name: NonBlankString | None = None
     email: NonBlankString | None = None
     password: NonBlankString | None = None
     address: NonBlankString | None = None
+
+    @field_validator("password")
+    @classmethod
+    def _password_strength(cls, value: str | None) -> str | None:
+        return _validate_password_strength(value)
 
 
 class AdminCreate(CustomerCreate):

@@ -42,13 +42,9 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
   const nameErr = name.trim() === "" ? "Required." : "";
   const emailErr = email.trim() === "" ? "Required." : !email.includes("@") ? "Must be an email." : "";
   const addressErr = address.trim() === "" ? "Required." : "";
-  const passwordErr = isCreate
-    ? password.length < 6
-      ? "At least 6 characters."
-      : ""
-    : password !== "" && password.length < 6
-    ? "At least 6 characters."
-    : "";
+  const passwordHint = "At least 8 characters, including one special character.";
+  const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);
+  const passwordErr = isCreate ? (passwordInvalid ? passwordHint : "") : password !== "" && passwordInvalid ? passwordHint : "";
   const anyErr = nameErr || emailErr || passwordErr || addressErr;
 
   function submit() {
@@ -117,7 +113,7 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => setTouched(true)}
-            placeholder={isCreate ? "At least 6 characters" : "Leave blank to keep existing password"}
+            placeholder={isCreate ? "At least 8 characters, incl. 1 special" : "Leave blank to keep existing password"}
           />
           {touched && passwordErr ? (
             <div className="field-error">{passwordErr}</div>
