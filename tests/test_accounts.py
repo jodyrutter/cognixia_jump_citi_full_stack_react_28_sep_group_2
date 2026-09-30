@@ -55,7 +55,7 @@ def login_headers(client, email="test-admin@example.com", password="test-passwor
 
 
 def test_list_accounts_returns_seed_data(client) -> None:
-    response = client.get("/api/accounts")
+    response = client.get("/api/accounts", headers=login_headers(client))
 
     assert response.status_code == 200
     assert len(response.json()) == 2
@@ -88,11 +88,11 @@ def test_account_crud_flow(client) -> None:
 
     delete_response = client.delete(f"/api/accounts/{account_id}", headers=login_headers(client))
     assert delete_response.status_code == 204
-    assert client.get(f"/api/accounts/{account_id}").status_code == 404
+    assert client.get(f"/api/accounts/{account_id}", headers=customer_headers).status_code == 404
 
 
 def test_missing_account_returns_not_found(client) -> None:
-    response = client.get("/api/accounts/999")
+    response = client.get("/api/accounts/999", headers=login_headers(client))
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Account not found"}
@@ -133,13 +133,14 @@ def test_withdraw_rejects_insufficient_funds(client) -> None:
     ("POST", "/api/accounts/1/withdraw", {"amount": "10.00"}),
 ])
 def test_balance_mutations_and_deletion_require_admin(client, method, path, payload):
-    before = client.get("/api/accounts/1").json()
+    admin_headers = login_headers(client)
+    before = client.get("/api/accounts/1", headers=admin_headers).json()
     response = client.request(method, path, json=payload)
     assert response.status_code == 401
     headers = login_headers(client, "customer@example.com")
     response = client.request(method, path, json=payload, headers=headers)
     assert response.status_code == 403
-    assert client.get("/api/accounts/1").json() == before
+    assert client.get("/api/accounts/1", headers=admin_headers).json() == before
 
 
 def test_admin_can_set_balance_to_zero(client):
@@ -150,15 +151,37 @@ def test_admin_can_set_balance_to_zero(client):
 
 @pytest.mark.parametrize("balance", [None, "-1.00", "1.001"])
 def test_invalid_balance_does_not_change_account(client, balance):
-    before = client.get("/api/accounts/1").json()
-    response = client.patch("/api/accounts/1", json={"balance": balance}, headers=login_headers(client))
+    headers = login_headers(client)
+    before = client.get("/api/accounts/1", headers=headers).json()
+    response = client.patch("/api/accounts/1", json={"balance": balance}, headers=headers)
     assert response.status_code == 422
-    assert client.get("/api/accounts/1").json() == before
+    assert client.get("/api/accounts/1", headers=headers).json() == before
 
 
 def test_customer_can_update_account_type(client):
-    response = client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=login_headers(client, "customer@example.com"))
+    response = client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=login_headers(client, "aarav@example.com", "password"))
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/api/accounts", "/api/customers", "/api/customers/1", "/api/admins"])
+def test_administrative_reads_require_admin(client, path):
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers=login_headers(client, "aarav@example.com", "password")).status_code == 403
+    assert client.get(path, headers=login_headers(client)).status_code == 200
+
+
+def test_account_details_and_updates_require_ownership_or_admin(client):
+    owner = login_headers(client, "aarav@example.com", "password")
+    other_customer = login_headers(client, "customer@example.com")
+    admin = login_headers(client)
+
+    assert client.get("/api/accounts/1").status_code == 401
+    assert client.get("/api/accounts/1", headers=owner).status_code == 200
+    assert client.get("/api/accounts/1", headers=other_customer).status_code == 403
+    assert client.get("/api/accounts/1", headers=admin).status_code == 200
+    assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=other_customer).status_code == 403
+    assert client.patch("/api/accounts/1", json={"balance": "0.00"}, headers=owner).status_code == 403
+    assert client.get("/api/accounts/1", headers=owner).json()["balance"] == "1250.00"
 
 
 @pytest.mark.parametrize("email,password", [
@@ -203,7 +226,7 @@ def test_invalid_jwt_rejected(client, failure):
 
     assert response.status_code == 401
 
-    assert client.get("/api/accounts/1").status_code == 200
+    assert client.get("/api/accounts/1", headers=login_headers(client)).status_code == 200
 
 def test_login_returns_signed_jwt(client):
     response = client.post("/api/login",json={"email": "test-admin@example.com", "password": "test-password"})
@@ -241,7 +264,8 @@ def test_creation_cannot_set_account_number(client):
 def test_account_number_generation_retries_existing_number(client, monkeypatch):
     from app import mongo_store
 
-    assert client.get("/api/accounts").status_code == 200
+    admin_headers = login_headers(client)
+    assert client.get("/api/accounts", headers=admin_headers).status_code == 200
 
     database = get_database()
     result = database["accounts"].update_one({"id": 1}, {"$set": {"account_number": "100000000001"}})
@@ -258,7 +282,7 @@ def test_account_number_generation_retries_existing_number(client, monkeypatch):
 
     assert response.status_code == 201
     assert response.json()["account_number"] == "100000000009"
-    assert len(client.get("/api/accounts").json()) == 3
+    assert len(client.get("/api/accounts", headers=admin_headers).json()) == 3
 
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])
@@ -290,8 +314,8 @@ def test_registered_customer_can_login_and_own_account(client):
     assert response.json()["balance"] == "0.00"
     account_id = response.json()["id"]
     assert client.delete(f"/api/accounts/{account_id}", headers=headers).status_code == 403
-    assert client.get(f"/api/accounts/{account_id}").status_code == 200
-    assert any(user["user_id"] == customer["user_id"] for user in client.get("/api/customers").json())
+    assert client.get(f"/api/accounts/{account_id}", headers=headers).status_code == 200
+    assert any(user["user_id"] == customer["user_id"] for user in client.get("/api/customers", headers=login_headers(client)).json())
 
 
 def test_only_admin_can_create_admin_and_new_admin_can_login(client):
@@ -305,7 +329,7 @@ def test_only_admin_can_create_admin_and_new_admin_can_login(client):
     assert "password" not in response.json()
     new_admin_headers = login_headers(client, "second-admin@example.com")
     assert client.delete("/api/accounts/1", headers=new_admin_headers).status_code == 204
-    assert any(user["user_id"] == response.json()["user_id"] for user in client.get("/api/admins").json())
+    assert any(user["user_id"] == response.json()["user_id"] for user in client.get("/api/admins", headers=new_admin_headers).json())
 
 
 def test_account_creation_requires_customer_login(client):
@@ -356,7 +380,7 @@ def test_customer_view_update_and_admin_delete(client) -> None:
         },
     )
     customer_id = create_response.json()["user_id"]
-    get_response = client.get(f"/api/customers/{customer_id}")
+    get_response = client.get(f"/api/customers/{customer_id}", headers=login_headers(client))
     assert get_response.status_code == 200
 
     update_response = client.patch(
@@ -420,7 +444,7 @@ def test_customer_accounts_endpoint_requires_authentication(client) -> None:
 def test_customer_delete_rejects_unverified_user_id_header(client):
     response = client.delete("/api/customers/5", headers={"X-User-Id": "3"})
     assert response.status_code == 401
-    assert client.get("/api/customers/5").status_code == 200
+    assert client.get("/api/customers/5", headers=login_headers(client)).status_code == 200
 
 
 def test_customer_password_update_works_with_login(client):
@@ -439,7 +463,7 @@ def test_customer_password_update_works_with_login(client):
     })
     assert response.status_code == 200
     headers = {"Authorization": f"Bearer {response.json()['access_token']}"}
-    assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=headers).status_code == 200
+    assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=headers).status_code == 403
     assert client.delete("/api/accounts/1", headers=headers).status_code == 403
 
 
@@ -577,7 +601,7 @@ def test_update_me_changes_own_profile_without_customer_id(client):
 
     assert response.status_code == 200
     assert response.json()["address"] == "New Address"
-    assert client.get("/api/customers/5").json()["address"] == "New Address"
+    assert client.get("/api/customers/5", headers=login_headers(client)).json()["address"] == "New Address"
 
 
 def test_update_me_rejects_admin(client):

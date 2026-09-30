@@ -210,13 +210,10 @@ def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
 def get_account(account_id: int, service: Service, current_user: CurrentUser) -> Account:
     account = service.get_account(account_id)
-    is_owner = current_user.user_id == account.owner_id
-    is_admin = isinstance(current_user, Admin)
-
-    if not is_owner and not is_admin:
+    if not isinstance(current_user, Admin) and current_user.user_id != account.owner_id:
         raise HTTPException(status_code=403, detail="You can only view your own account")
-    
-    return service.get_account(account_id)
+
+    return account
 
 
 @app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
@@ -234,17 +231,14 @@ def create_account(account_data: AccountOpenRequest, service: Service, current_u
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
 def update_account(account_id: int, account_data: AccountUpdate, service: Service, current_user: CurrentUser) -> Account:
     account = service.get_account(account_id)
-    is_owner = current_user.user_id == account.owner_id
-    is_admin = isinstance(current_user, Admin)
-
-    if not is_owner and not is_admin:
+    if not isinstance(current_user, Admin) and current_user.user_id != account.owner_id:
         raise HTTPException(status_code=403, detail="You can only update your own accounts")
-    
-    if is_owner and "balance" in account_data.model_fields_set:
+
+    if "balance" in account_data.model_fields_set:
         require_admin(current_user)
         if account_data.balance is None:
             raise HTTPException(status_code=422, detail="Balance cannot be null")
-    
+
     return service.update_account(account_id, account_data)
 
 

@@ -10,6 +10,7 @@ py -m venv .venv
 python -m pip install -e ".[test]"
 $env:MONGODB_URI = "mongodb://localhost:27017"
 $env:MONGODB_DATABASE = "banking"
+$env:BANK_JWT_SECRET = "replace-with-a-long-random-secret"
 uvicorn app.main:app --reload
 ```
 
@@ -21,20 +22,23 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is at
 
 ## Endpoints
 
-- `GET /api/accounts` - list accounts
-- `GET /api/accounts/{account_id}` - get one account
+- `GET /api/accounts` - list accounts (admin only)
+- `GET /api/accounts/{account_id}` - get one account (owner or admin)
 - `POST /api/accounts` - create an account
-- `PATCH /api/accounts/{account_id}` - update an account
+- `PATCH /api/accounts/{account_id}` - update an account (owner or admin; only admins can change balances)
 - `DELETE /api/accounts/{account_id}` - delete an account
-- `POST /api/accounts/{account_id}/deposit` - deposit money
-- `POST /api/accounts/{account_id}/withdraw` - withdraw money
-- `GET /api/customers` - list customers
+- `POST /api/accounts/{account_id}/deposit` - deposit money (owner or admin)
+- `POST /api/accounts/{account_id}/withdraw` - withdraw money (owner or admin)
+- `GET /api/me` - get the signed-in user's profile and role
+- `PATCH /api/me` - update the signed-in customer's profile
+- `GET /api/me/accounts` - list the signed-in customer's accounts
+- `GET /api/customers` - list customers (admin only)
 - `POST /api/customers` - create a customer
-- `GET /api/customers/{customer_id}` - get one customer
+- `GET /api/customers/{customer_id}` - get one customer (admin only)
 - `PATCH /api/customers/{customer_id}` - update a customer
 - `DELETE /api/customers/{customer_id}` - delete a customer as an admin
 - `GET /api/customers/{customer_id}/accounts` - list accounts owned by a customer
-- `GET /api/admins` - list admins
+- `GET /api/admins` - list admins (admin only)
 - `POST /api/admins` - create an admin
 
 Run the tests with:
@@ -48,5 +52,6 @@ The tests use MongoDB and require the Docker MongoDB container to be running. Th
 ```powershell
 $env:MONGODB_URI = "mongodb://localhost:27017"
 $env:MONGODB_DATABASE = "banking_test"
+$env:BANK_JWT_SECRET = "test-only-long-random-secret"
 python -m pytest
 ```
