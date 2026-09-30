@@ -9,8 +9,6 @@ export interface Account {
 }
 
 export interface AccountCreate {
-  account_number: string;
-  owner_id: number;
   account_type: AccountType;
 }
 

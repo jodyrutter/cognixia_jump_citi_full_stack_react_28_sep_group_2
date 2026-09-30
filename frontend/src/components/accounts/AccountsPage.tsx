@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { accountsApi } from "../../api/accounts";
 import { usersApi } from "../../api/users";
 import { ApiError } from "../../api/client";
+import { useAuth } from "../../auth/useAuth";
 import type { Account, AccountCreate, AccountUpdate, AccountType } from "../../types/account";
 import type { Customer } from "../../types/customer";
 import { SummaryCards } from "./SummaryCards";
@@ -15,6 +16,7 @@ type DrawerMode = { kind: "create" } | { kind: "edit"; account: Account } | null
 type MoneyState = { mode: MoneyMode; account: Account } | null;
 
 export function AccountsPage() {
+  const { session } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,6 +292,7 @@ export function AccountsPage() {
         open={drawer !== null}
         mode={drawer ?? { kind: "create" }}
         customers={customers}
+        currentUserEmail={session?.email ?? ""}
         submitting={drawerSubmitting}
         errorDetail={drawerError}
         onClose={() => setDrawer(null)}

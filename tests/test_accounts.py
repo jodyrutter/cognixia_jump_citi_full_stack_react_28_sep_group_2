@@ -60,27 +60,31 @@ def test_list_accounts_returns_seed_data(client) -> None:
 
 
 def test_account_crud_flow(client) -> None:
-    client.headers.update(login_headers(client))
+    customer_headers = login_headers(client, "customer@example.com")
     create_response = client.post(
         "/api/accounts",
         json={
-            "account_number": "10000003",
-            "owner_id": 1,
             "account_type": "checking",
         },
+        headers=customer_headers,
     )
 
     assert create_response.status_code == 201
+    assert create_response.json()["owner_id"] == 5
+    account_number = create_response.json()["account_number"]
+    assert account_number.isdigit() and len(account_number) == 12
+    assert account_number not in {"10000001", "10000002"}
     account_id = create_response.json()["id"]
 
     update_response = client.patch(
         f"/api/accounts/{account_id}",
         json={"account_type": "savings"},
+        headers=customer_headers,
     )
     assert update_response.status_code == 200
     assert update_response.json()["account_type"] == "savings"
 
-    delete_response = client.delete(f"/api/accounts/{account_id}")
+    delete_response = client.delete(f"/api/accounts/{account_id}", headers=login_headers(client))
     assert delete_response.status_code == 204
     assert client.get(f"/api/accounts/{account_id}").status_code == 404
 
@@ -179,10 +183,33 @@ def test_invalid_sessions(client, session_kind):
 
 def test_creation_cannot_set_balance(client):
     response = client.post("/api/accounts", json={
-        "owner_id": 102, "account_type": "checking", "account_number": "10000099", "balance": "1000.00",
+        "owner_id": 102, "account_type": "checking", "balance": "1000.00",
     })
     assert response.status_code == 422
-    assert len(client.get("/api/accounts").json()) == 2
+
+
+def test_creation_cannot_set_account_number(client):
+    response = client.post("/api/accounts", json={
+        "owner_id": 1, "account_type": "checking", "account_number": "12345678",
+    })
+    assert response.status_code == 422
+
+
+def test_account_number_generation_retries_existing_number(client, monkeypatch):
+    from app import mongo_store
+
+    assert client.get("/api/accounts").status_code == 200
+    customer_headers = login_headers(client, "customer@example.com")
+    candidates = iter([1, 9])
+    monkeypatch.setattr(mongo_store.secrets, "randbelow", lambda _limit: next(candidates))
+
+    response = client.post("/api/accounts", json={
+        "account_type": "checking",
+    }, headers=customer_headers)
+
+    assert response.status_code == 201
+    assert response.json()["account_number"] == "100000000009"
+    assert len(client.get("/api/accounts").json()) == 3
 
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])
@@ -205,9 +232,12 @@ def test_registered_customer_can_login_and_own_account(client):
     assert "admin" not in customer
     headers = login_headers(client, "new@example.com")
     response = client.post("/api/accounts", json={
-        "owner_id": customer["user_id"], "account_number": "10000020", "account_type": "checking",
-    })
+        "account_type": "checking",
+    }, headers=headers)
     assert response.status_code == 201
+    assert response.json()["owner_id"] == customer["user_id"]
+    assert response.json()["account_number"].isdigit()
+    assert len(response.json()["account_number"]) == 12
     assert response.json()["balance"] == "0.00"
     account_id = response.json()["id"]
     assert client.delete(f"/api/accounts/{account_id}", headers=headers).status_code == 403
@@ -229,13 +259,19 @@ def test_only_admin_can_create_admin_and_new_admin_can_login(client):
     assert any(user["user_id"] == response.json()["user_id"] for user in client.get("/api/admins").json())
 
 
-@pytest.mark.parametrize("owner_id", [999, 3])
-def test_account_requires_existing_customer(client, owner_id):
+def test_account_creation_requires_customer_login(client):
+    assert client.post("/api/accounts", json={"account_type": "checking"}).status_code == 401
     response = client.post("/api/accounts", json={
-        "owner_id": owner_id, "account_number": "10000030", "account_type": "checking",
-    })
-    assert response.status_code == 404
-    assert response.json() == {"detail": "Customer not found"}
+        "account_type": "checking",
+    }, headers=login_headers(client))
+    assert response.status_code == 403
+
+
+def test_account_creation_rejects_client_selected_owner(client):
+    response = client.post("/api/accounts", json={
+        "owner_id": 1, "account_type": "checking",
+    }, headers=login_headers(client, "customer@example.com"))
+    assert response.status_code == 422
 
 
 def test_bootstrap_admin_uses_configured_hash(monkeypatch):
@@ -271,7 +307,6 @@ def test_customer_view_update_and_admin_delete(client) -> None:
         },
     )
     customer_id = create_response.json()["user_id"]
-
     get_response = client.get(f"/api/customers/{customer_id}")
     assert get_response.status_code == 200
 
