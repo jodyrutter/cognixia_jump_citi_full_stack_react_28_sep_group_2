@@ -402,6 +402,38 @@ def test_signup_rejects_duplicate_email(client):
 
     assert response.status_code == 409
 
+def test_logout_invalidates_only_current_session(client):
+    first_session = login_headers(client)
+    second_session = login_headers(client)
+
+    response = client.post("/api/logout", headers=first_session)
+    assert response.status_code == 204
+
+    # The logged-out token can no longer authorize an update.
+    response = client.patch(
+        "/api/accounts/1",
+        json={"account_type": "savings"},
+        headers=first_session,
+    )
+    assert response.status_code == 401
+
+    # Another login session still works.
+    response = client.patch(
+        "/api/accounts/1",
+        json={"account_type": "savings"},
+        headers=second_session,
+    )
+    assert response.status_code == 200
+
+    # Logging out the same token again is harmless.
+    response = client.post("/api/logout", headers=first_session)
+    assert response.status_code == 204
+
+
+def test_logout_requires_bearer_credentials(client):
+    response = client.post("/api/logout")
+    assert response.status_code == 401
+
 
 @pytest.mark.parametrize("method", ["GET", "PATCH", "DELETE"])
 def test_missing_customer_returns_not_found(client, method):

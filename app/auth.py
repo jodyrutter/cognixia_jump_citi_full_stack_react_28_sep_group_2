@@ -9,6 +9,15 @@ bearer_scheme = HTTPBearer(auto_error=False)
 sessions: dict[str, tuple[int, datetime]] = {}
 UserStorage = Annotated[MongoUserStore, Depends(get_user_store)]
 
+def logout_session(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)]) -> None:
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    sessions.pop(credentials.credentials, None)
 
 def get_current_user(
     user_store: UserStorage,

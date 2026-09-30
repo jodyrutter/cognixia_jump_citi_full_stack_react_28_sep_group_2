@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import auth
-from .auth import AdminUser, CurrentUser, require_admin
+from .auth import AdminUser, CurrentUser, require_admin, logout_session
 from .models import Account, AccountCreate, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
 from .services.account_service import (
     AccountNotFoundError,
@@ -75,6 +75,10 @@ def get_user_service(
 
 
 Users = Annotated[UserService, Depends(get_user_service)]
+
+@app.post("/api/logout",status_code=status.HTTP_204_NO_CONTENT,tags=["auth"],dependencies=[Depends(logout_session)])
+def logout() -> Response:
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
 def signup(user_data: CustomerCreate, service: Users) -> Customer:
