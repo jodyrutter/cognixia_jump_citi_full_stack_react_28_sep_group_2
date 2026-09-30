@@ -72,6 +72,7 @@ class MongoAccountStore:
         if self._initialized:
             return
         self._accounts.create_index([("account_number", ASCENDING)], unique=True)
+        self._accounts.create_index([("id", ASCENDING)], unique=True)
         self._accounts.create_index([("owner_id", ASCENDING), ("id", ASCENDING)])
         seeds = [
             {
@@ -174,6 +175,7 @@ class MongoUserStore:
         if self._initialized:
             return
         self._users.create_index([("normalized_email", ASCENDING)], unique=True)
+        self._users.create_index([("user_id", ASCENDING)], unique=True)
         seeds = [
             {"user_id": 1, "name": "Aarav Sharma", "email": "aarav@example.com", "address": "Pune", "admin": False, "password_hash": self._password_hasher.hash("password")},
             {"user_id": 2, "name": "Maya Patel", "email": "maya@example.com", "address": "Mumbai", "admin": False, "password_hash": self._password_hasher.hash("123")},
