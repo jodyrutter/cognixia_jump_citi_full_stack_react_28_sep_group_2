@@ -46,7 +46,12 @@ class AccountCreate(BaseModel):
 
     owner_id: int
     account_type: AccountType
-    account_number: str = Field(min_length=4, max_length=20)
+
+
+class AccountOpenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_type: AccountType
 
 
 class AccountUpdate(BaseModel):
@@ -60,10 +65,13 @@ class MoneyRequest(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2)
 
 
-class Account(AccountCreate):
+class Account(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    account_number: str
+    owner_id: int
+    account_type: AccountType
     balance: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
 
 class LoginRequest(BaseModel):

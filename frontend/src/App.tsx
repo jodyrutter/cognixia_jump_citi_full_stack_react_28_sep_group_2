@@ -4,11 +4,14 @@ import type { Page } from "./components/layout/Sidebar";
 import { AccountsPage } from "./components/accounts/AccountsPage";
 import { CustomersPage } from "./components/users/CustomersPage";
 import { AdminsPage } from "./components/users/AdminsPage";
+import { LoginScreen } from "./components/auth/LoginScreen";
 import { usersApi } from "./api/users";
 import { actingAsStore } from "./auth/actingAsStore";
+import { useAuth } from "./auth/useAuth";
 import type { Admin, Customer } from "./types/customer";
 
 export default function App() {
+  const { session } = useAuth();
   const [page, setPage] = useState<Page>("accounts");
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -31,8 +34,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    refreshUsers();
-  }, [refreshUsers]);
+    if (session) refreshUsers();
+  }, [refreshUsers, session]);
+
+  if (!session) return <LoginScreen />;
 
   return (
     <AppShell page={page} onNavigate={setPage} admins={admins} customers={customers}>

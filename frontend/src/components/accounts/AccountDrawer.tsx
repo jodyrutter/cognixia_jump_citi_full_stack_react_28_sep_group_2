@@ -8,6 +8,7 @@ interface Props {
   open: boolean;
   mode: Mode;
   customers: Customer[];
+  currentUserEmail: string;
   submitting: boolean;
   errorDetail?: string;
   onClose: () => void;
@@ -15,42 +16,25 @@ interface Props {
   onUpdate: (id: number, data: AccountUpdate) => void;
 }
 
-export function AccountDrawer({ open, mode, customers, submitting, errorDetail, onClose, onCreate, onUpdate }: Props) {
-  const [accountNumber, setAccountNumber] = useState("");
-  const [ownerId, setOwnerId] = useState<string>("");
+export function AccountDrawer({ open, mode, customers, currentUserEmail, submitting, errorDetail, onClose, onCreate, onUpdate }: Props) {
   const [accountType, setAccountType] = useState<AccountType>("checking");
-  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setTouched(false);
     if (mode.kind === "edit") {
-      setAccountNumber(mode.account.account_number);
-      setOwnerId(String(mode.account.owner_id));
       setAccountType(mode.account.account_type);
     } else {
-      setAccountNumber("");
-      setOwnerId(customers[0] ? String(customers[0].user_id) : "");
       setAccountType("checking");
     }
-  }, [open, mode, customers]);
-
-  const acctErr =
-    accountNumber.length < 4
-      ? "Must be at least 4 characters."
-      : accountNumber.length > 20
-      ? "Must be 20 characters or fewer."
-      : "";
-  const ownerErr = ownerId === "" ? "Select a customer." : "";
+  }, [open, mode]);
 
   const isCreate = mode.kind === "create";
-  const canSubmit = isCreate ? !acctErr && !ownerErr && !submitting : !submitting;
+  const canSubmit = !submitting;
 
   function handleSubmit() {
-    setTouched(true);
     if (isCreate) {
       if (!canSubmit) return;
-      onCreate({ account_number: accountNumber, owner_id: Number(ownerId), account_type: accountType });
+      onCreate({ account_type: accountType });
     } else if (mode.kind === "edit") {
       onUpdate(mode.account.id, { account_type: accountType });
     }
@@ -106,48 +90,9 @@ export function AccountDrawer({ open, mode, customers, submitting, errorDetail, 
         {isCreate && (
           <>
             <div className="form-group">
-              <label>Account Number <span className="req">*</span></label>
-              <input
-                type="text"
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                onBlur={() => setTouched(true)}
-                placeholder="e.g. 10000003"
-              />
-              {touched && acctErr ? (
-                <div className="field-error">{acctErr}</div>
-              ) : (
-                <div className="help">4–20 characters. Must be unique across the institution.</div>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Owner <span className="req">*</span></label>
-              {customers.length === 0 ? (
-                <>
-                  <input type="text" value="No customers available" disabled />
-                  <div className="field-error">Create a customer first (Customers page) before opening an account.</div>
-                </>
-              ) : (
-                <>
-                  <select
-                    className="select-input"
-                    value={ownerId}
-                    onChange={(e) => setOwnerId(e.target.value)}
-                    onBlur={() => setTouched(true)}
-                  >
-                    {customers.map((c) => (
-                      <option key={c.user_id} value={c.user_id}>
-                        {c.name} — {c.email} (#{c.user_id})
-                      </option>
-                    ))}
-                  </select>
-                  {touched && ownerErr ? (
-                    <div className="field-error">{ownerErr}</div>
-                  ) : (
-                    <div className="help">Only existing customers can own an account.</div>
-                  )}
-                </>
-              )}
+              <label>Owner</label>
+              <input type="email" value={currentUserEmail} disabled />
+              <div className="help">The account belongs to the signed-in customer.</div>
             </div>
           </>
         )}
@@ -188,7 +133,7 @@ export function AccountDrawer({ open, mode, customers, submitting, errorDetail, 
       </div>
       <div className="drawer-foot">
         <button className="btn btn-ghost" onClick={onClose} disabled={submitting}>Cancel</button>
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={!canSubmit || (isCreate && customers.length === 0)}>
+        <button className="btn btn-primary" onClick={handleSubmit} disabled={!canSubmit}>
           {submitting ? "Saving…" : isCreate ? "Create Account" : "Save Changes"}
         </button>
       </div>

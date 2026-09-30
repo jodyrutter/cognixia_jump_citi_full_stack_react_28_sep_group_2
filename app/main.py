@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from . import auth
 from .auth import AdminUser, CurrentUser, require_admin, logout_session
-from .models import Account, AccountCreate, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
+from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
@@ -174,8 +174,15 @@ def get_account(account_id: int, service: Service) -> Account:
 
 
 @app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
-def create_account(account_data: AccountCreate, service: Service) -> Account:
-    return service.create_account(account_data)
+def create_account(account_data: AccountOpenRequest, service: Service, current_user: CurrentUser) -> Account:
+    if not isinstance(current_user, Customer):
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers can open accounts for themselves",
+        )
+    return service.create_account(
+        AccountCreate(owner_id=current_user.user_id, account_type=account_data.account_type)
+    )
 
 
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])

@@ -2,6 +2,7 @@ from copy import deepcopy
 from decimal import Decimal
 import os
 from typing import Any, cast
+import secrets
 
 from bson.decimal128 import Decimal128
 from pymongo import ASCENDING, MongoClient, ReturnDocument
@@ -127,13 +128,23 @@ class MongoAccountStore:
         if counter is None:
             raise RuntimeError("Failed to allocate an account ID")
         counter = cast(dict[str, Any], counter)
-        document = {
-            "id": counter["value"],
-            **account_data.model_dump(),
-            "balance": Decimal128("0.00"),
-        }
-        self._accounts.insert_one(document)
-        return _account_from_document(document)
+
+        for _attempt in range(10):
+            account_number = str(secrets.randbelow(900_000_000_000) + 100_000_000_000)
+            if self._accounts.find_one({"account_number": account_number}) is not None:
+                continue
+            document = {
+                "id": counter["value"],
+                **account_data.model_dump(),
+                "account_number": account_number,
+                "balance": Decimal128("0.00"),
+            }
+            try:
+                self._accounts.insert_one(document)
+            except DuplicateKeyError:
+                continue
+            return _account_from_document(document)
+        raise RuntimeError("Failed to generate a unique account number")
 
     def update(self, account_id: int, account_data: AccountUpdate) -> Account | None:
         self._ensure_initialized()
