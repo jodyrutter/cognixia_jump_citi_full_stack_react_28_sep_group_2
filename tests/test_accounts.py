@@ -5,6 +5,8 @@ from secrets import token_urlsafe
 import pytest
 from fastapi.testclient import TestClient
 from pymongo.database import Database
+import jwt
+
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
 os.environ["MONGODB_DATABASE"] = "banking_test"
@@ -165,17 +167,60 @@ def test_invalid_login(client, email, password):
     assert not auth.sessions
 
 
-@pytest.mark.parametrize("session_kind", ["unknown", "expired", "missing_user"])
-def test_invalid_sessions(client, session_kind):
-    token = token_urlsafe(32)
-    if session_kind == "expired":
-        auth.sessions[token] = (4, datetime.now(timezone.utc) - timedelta(minutes=1))
-    elif session_kind == "missing_user":
-        auth.sessions[token] = (999, datetime.now(timezone.utc) + timedelta(minutes=1))
-    response = client.delete("/api/accounts/1", headers={"Authorization": f"Bearer {token}"})
+@pytest.mark.parametrize("failure", ["logged_out", "expired", "missing_user", "wrong_signature"])
+def test_invalid_jwt_rejected(client, failure):
+    headers = login_headers(client)
+    original_token = headers["Authorization"].split(" ", 1)[1]
+
+    payload = jwt.decode(original_token, auth.JWT_SECRET, algorithms=[auth.JWT_ALGORITHM])
+
+    session_user_id, session_expiration = auth.sessions[original_token]
+
+    if failure == "expired":
+        payload["exp"] = datetime.now(timezone.utc) - timedelta(minutes=1)
+
+    elif failure == "missing_user":
+        payload["sub"] = "999999"
+        session_user_id = 999999
+
+    signing_key = auth.JWT_SECRET
+
+    if failure == "wrong_signature":
+        signing_key = "different-test-signing-secret-at-least-32-bytes"
+
+    token = jwt.encode(payload, signing_key, algorithm=auth.JWT_ALGORITHM)
+
+    auth.sessions[token] = (session_user_id, session_expiration)
+
+    if failure == "logged_out":
+        auth.sessions.pop(token)
+
+    response = client.delete("/api/accounts/1",headers={"Authorization": f"Bearer {token}"})
+
     assert response.status_code == 401
+
     assert client.get("/api/accounts/1").status_code == 200
 
+def test_login_returns_signed_jwt(client):
+    response = client.post("/api/login",json={"email": "test-admin@example.com", "password": "test-password"})
+
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["token_type"] == "bearer"
+
+    payload = jwt.decode(body["access_token"], auth.JWT_SECRET, algorithms=[auth.JWT_ALGORITHM],
+        options={
+            "require": ["sub", "username", "role", "exp", "jti"],
+        },
+    )
+
+    assert payload["username"] == "test-admin@example.com"
+    assert payload["role"] == "admin"
+    assert int(payload["sub"]) > 0
+    assert payload["exp"] > datetime.now(timezone.utc).timestamp()
+    assert isinstance(payload["jti"], str)
+    assert payload["jti"]
 
 def test_creation_cannot_set_balance(client):
     response = client.post("/api/accounts", json={

@@ -35,20 +35,13 @@ app.add_middleware(
 @app.post("/api/login", tags=["auth"])
 def login(credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
     user = user_store.authenticate(credentials.email, credentials.password)
+
     if user is None:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password", headers={"WWW-Authenticate": "Bearer"})
 
-    token = token_urlsafe(32)
+    token = auth.create_access_token(user)
 
-    auth.sessions[token] = (
-        user.user_id,
-        datetime.now(timezone.utc) + timedelta(minutes=30),
-    )
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-    }
+    return {"access_token": token, "token_type": "bearer"}
 
 def get_account_store() -> MongoAccountStore:
     return account_store
