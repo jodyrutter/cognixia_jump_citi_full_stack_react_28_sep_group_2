@@ -42,34 +42,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 registration_limit = limiter.shared_limit("3/minute",scope="registration")
 
 
-def _login(credentials: LoginRequest, user_store: MongoUserStore, *, admin_only: bool) -> dict[str, str]:
-    user = user_store.authenticate(credentials.email, credentials.password)
-    invalid_credentials = HTTPException(
-        status_code=401, detail="Invalid email or password", headers={"WWW-Authenticate": "Bearer"}
-    )
-
-    if user is None:
-        raise invalid_credentials
-    if admin_only and not isinstance(user, Admin):
-        raise invalid_credentials
-    if not admin_only and isinstance(user, Admin):
-        raise invalid_credentials
-
-    token = auth.create_access_token(user)
-
-    return {"access_token": token, "token_type": "bearer"}
-
-
-@app.post("/api/login/customer", tags=["auth"])
-@limiter.limit("5/minute")
-def login_customer(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
-    return _login(credentials, user_store, admin_only=False)
-
-
-@app.post("/api/login/admin", tags=["auth"])
-@limiter.limit("5/minute")
-def login_admin(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
-    return _login(credentials, user_store, admin_only=True)
+# ---------------------------------------------------------------------------
+# Dependencies shared by every section below.
+# ---------------------------------------------------------------------------
 
 def get_account_store() -> MongoAccountStore:
     return account_store
@@ -97,9 +72,73 @@ def get_user_service(
 
 Users = Annotated[UserService, Depends(get_user_service)]
 
+
+# ---------------------------------------------------------------------------
+# Exception handlers (shared across the customer and admin endpoints below).
+# ---------------------------------------------------------------------------
+
+@app.exception_handler(UserCustomerNotFoundError)
+@app.exception_handler(CustomerNotFoundError)
+async def customer_not_found_handler(_request: Request, _exception: CustomerNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "Customer not found"})
+
+
+@app.exception_handler(CustomerHasAccountsError)
+async def customer_has_accounts_handler(_request: Request, _exception: CustomerHasAccountsError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "Customer still owns accounts"})
+
+
+@app.exception_handler(EmailAlreadyExistsError)
+async def email_already_exists_handler(_request: Request, _exception: EmailAlreadyExistsError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "An account with this email already exists"})
+
+
+@app.exception_handler(AccountNotFoundError)
+async def account_not_found_handler(_request: Request, _exception: AccountNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "Account not found"})
+
+
+@app.exception_handler(InvalidAmountError)
+async def invalid_amount_handler(_request: Request, _exception: InvalidAmountError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Amount must be greater than zero"})
+
+
+@app.exception_handler(InsufficientFundsError)
+async def insufficient_funds_handler(_request: Request, _exception: InsufficientFundsError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
+
+
+# ---------------------------------------------------------------------------
+# Public / shared endpoints — usable without authentication, or by either role.
+# ---------------------------------------------------------------------------
+
+@app.get("/", tags=["health"])
+def health_check() -> dict[str, str]:
+    return {"message": "Banking API is running"}
+
+
+def _login(credentials: LoginRequest, user_store: MongoUserStore, *, admin_only: bool) -> dict[str, str]:
+    user = user_store.authenticate(credentials.email, credentials.password)
+    invalid_credentials = HTTPException(
+        status_code=401, detail="Invalid email or password", headers={"WWW-Authenticate": "Bearer"}
+    )
+
+    if user is None:
+        raise invalid_credentials
+    if admin_only and not isinstance(user, Admin):
+        raise invalid_credentials
+    if not admin_only and isinstance(user, Admin):
+        raise invalid_credentials
+
+    token = auth.create_access_token(user)
+
+    return {"access_token": token, "token_type": "bearer"}
+
+
 @app.post("/api/logout",status_code=status.HTTP_204_NO_CONTENT,tags=["auth"],dependencies=[Depends(logout_session)])
 def logout() -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 
 @app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
 @registration_limit
@@ -116,6 +155,38 @@ def get_me(current_user: CurrentUser) -> Me:
         address=current_user.address,
         role="admin" if isinstance(current_user, Admin) else "customer",
     )
+
+
+def _authorize_transaction(account_id: int, current_user: CurrentUser, service: AccountService) -> None:
+    if isinstance(current_user, Admin):
+        return
+    if not isinstance(current_user, Customer):
+        raise HTTPException(status_code=403, detail="Authentication required")
+    account = service.get_account(account_id)
+    if account.owner_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="You can only manage your own account")
+
+
+@app.post("/api/accounts/{account_id}/deposit", response_model=Account, tags=["transactions"])
+def deposit(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
+    _authorize_transaction(account_id, current_user, service)
+    return service.deposit(account_id, request.amount)
+
+
+@app.post("/api/accounts/{account_id}/withdraw", response_model=Account, tags=["transactions"])
+def withdraw(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
+    _authorize_transaction(account_id, current_user, service)
+    return service.withdraw(account_id, request.amount)
+
+
+# ---------------------------------------------------------------------------
+# Customer-only endpoints.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/login/customer", tags=["auth"])
+@limiter.limit("5/minute")
+def login_customer(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+    return _login(credentials, user_store, admin_only=False)
 
 
 @app.patch("/api/me", response_model=Customer, tags=["auth"])
@@ -138,15 +209,26 @@ def list_my_accounts(service: Service, current_user: CurrentUser) -> list[Accoun
     return service.list_customer_accounts(current_user.user_id)
 
 
-@app.exception_handler(UserCustomerNotFoundError)
-@app.exception_handler(CustomerNotFoundError)
-async def customer_not_found_handler(_request: Request, _exception: CustomerNotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": "Customer not found"})
+@app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
+def create_account(account_data: AccountOpenRequest, service: Service, current_user: CurrentUser) -> Account:
+    if not isinstance(current_user, Customer):
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers can open accounts for themselves",
+        )
+    return service.create_account(
+        AccountCreate(owner_id=current_user.user_id, account_type=account_data.account_type)
+    )
 
 
-@app.exception_handler(CustomerHasAccountsError)
-async def customer_has_accounts_handler(_request: Request, _exception: CustomerHasAccountsError) -> JSONResponse:
-    return JSONResponse(status_code=409, content={"detail": "Customer still owns accounts"})
+# ---------------------------------------------------------------------------
+# Admin-only endpoints.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/login/admin", tags=["auth"])
+@limiter.limit("5/minute")
+def login_admin(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+    return _login(credentials, user_store, admin_only=True)
 
 
 @app.get("/api/customers", response_model=list[Customer], tags=["users"])
@@ -190,31 +272,6 @@ def create_admin(user_data: AdminCreate, service: Users, admin: AdminUser) -> Ad
     return service.create_admin(user_data)
 
 
-
-@app.exception_handler(AccountNotFoundError)
-async def account_not_found_handler(_request: Request, _exception: AccountNotFoundError) -> JSONResponse:
-    return JSONResponse(status_code=404, content={"detail": "Account not found"})
-
-
-@app.exception_handler(InvalidAmountError)
-async def invalid_amount_handler(_request: Request, _exception: InvalidAmountError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": "Amount must be greater than zero"})
-
-
-@app.exception_handler(InsufficientFundsError)
-async def insufficient_funds_handler(_request: Request, _exception: InsufficientFundsError) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
-
-@app.exception_handler(EmailAlreadyExistsError)
-async def email_already_exists_handler(_request: Request, _exception: EmailAlreadyExistsError) -> JSONResponse:
-    return JSONResponse(status_code=409, content={"detail": "An account with this email already exists"})
-
-
-@app.get("/", tags=["health"])
-def health_check() -> dict[str, str]:
-    return {"message": "Banking API is running"}
-
-
 @app.get("/api/accounts", response_model=list[Account], tags=["accounts"])
 def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
     return service.list_accounts()
@@ -223,18 +280,6 @@ def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
 def get_account(account_id: int, service: Service, _admin: AdminUser) -> Account:
     return service.get_account(account_id)
-
-
-@app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
-def create_account(account_data: AccountOpenRequest, service: Service, current_user: CurrentUser) -> Account:
-    if not isinstance(current_user, Customer):
-        raise HTTPException(
-            status_code=403,
-            detail="Only customers can open accounts for themselves",
-        )
-    return service.create_account(
-        AccountCreate(owner_id=current_user.user_id, account_type=account_data.account_type)
-    )
 
 
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
@@ -249,25 +294,3 @@ def update_account(account_id: int, account_data: AccountUpdate, service: Servic
 def delete_account(account_id: int, service: Service, admin: AdminUser) -> Response:
     service.delete_account(account_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-def _authorize_transaction(account_id: int, current_user: CurrentUser, service: AccountService) -> None:
-    if isinstance(current_user, Admin):
-        return
-    if not isinstance(current_user, Customer):
-        raise HTTPException(status_code=403, detail="Authentication required")
-    account = service.get_account(account_id)
-    if account.owner_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="You can only manage your own account")
-
-
-@app.post("/api/accounts/{account_id}/deposit", response_model=Account, tags=["transactions"])
-def deposit(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
-    _authorize_transaction(account_id, current_user, service)
-    return service.deposit(account_id, request.amount)
-
-
-@app.post("/api/accounts/{account_id}/withdraw", response_model=Account, tags=["transactions"])
-def withdraw(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
-    _authorize_transaction(account_id, current_user, service)
-    return service.withdraw(account_id, request.amount)
