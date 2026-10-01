@@ -71,6 +71,7 @@ def _transaction_from_document(document: dict[str, Any]) -> Transaction:
         type=document["type"],
         amount=Decimal(str(document["amount"].to_decimal())),
         balance_after=Decimal(str(document["balance_after"].to_decimal())),
+        counterparty_account_number=document.get("counterparty_account_number"),
         created_at=created_at,
     )
 
@@ -133,6 +134,11 @@ class MongoAccountStore:
     def get(self, account_id: int) -> Account | None:
         self._ensure_initialized()
         document = self._accounts.find_one({"id": account_id})
+        return _account_from_document(document) if document else None
+
+    def get_by_account_number(self, account_number: str) -> Account | None:
+        self._ensure_initialized()
+        document = self._accounts.find_one({"account_number": account_number})
         return _account_from_document(document) if document else None
 
     def create(self, account_data: AccountCreate) -> Account:
@@ -210,7 +216,44 @@ class MongoAccountStore:
         self._record_transaction(account, "withdraw", amount)
         return account
 
-    def _record_transaction(self, account: Account, transaction_type: str, amount: Decimal) -> None:
+    def transfer(self, from_account_id: int, to_account_id: int, amount: Decimal) -> tuple[Account, Account] | None:
+        self._ensure_initialized()
+        withdrawn = self._accounts.find_one_and_update(
+            {"id": from_account_id, "balance": {"$gte": Decimal128(str(amount))}},
+            {"$inc": {"balance": Decimal128(str(-amount))}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if withdrawn is None:
+            return None
+        deposited = self._accounts.find_one_and_update(
+            {"id": to_account_id},
+            {"$inc": {"balance": Decimal128(str(amount))}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if deposited is None:
+            # Destination vanished mid-transfer — restore the sender's balance.
+            self._accounts.find_one_and_update(
+                {"id": from_account_id}, {"$inc": {"balance": Decimal128(str(amount))}}
+            )
+            return None
+        from_account = _account_from_document(withdrawn)
+        to_account = _account_from_document(deposited)
+        self._record_transaction(
+            from_account, "transfer_out", amount, counterparty_account_number=to_account.account_number
+        )
+        self._record_transaction(
+            to_account, "transfer_in", amount, counterparty_account_number=from_account.account_number
+        )
+        return from_account, to_account
+
+    def _record_transaction(
+        self,
+        account: Account,
+        transaction_type: str,
+        amount: Decimal,
+        *,
+        counterparty_account_number: str | None = None,
+    ) -> None:
         counter = self._counters.find_one_and_update(
             {"_id": "transactions"},
             {"$inc": {"value": 1}},
@@ -227,6 +270,7 @@ class MongoAccountStore:
             "type": transaction_type,
             "amount": Decimal128(str(amount)),
             "balance_after": Decimal128(str(account.balance)),
+            "counterparty_account_number": counterparty_account_number,
             "created_at": datetime.now(timezone.utc),
         })
 

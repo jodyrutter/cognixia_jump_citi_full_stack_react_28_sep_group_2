@@ -509,6 +509,115 @@ def test_customer_accounts_endpoint_requires_authentication(client) -> None:
     assert response.status_code == 401
 
 
+def test_transfer_to_another_customer(client) -> None:
+    aarav = login_headers(client, "aarav@example.com", "password", admin=False)
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000002", "amount": "100.00"},
+        headers=aarav,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["from_account"]["id"] == 1
+    assert body["from_account"]["balance"] == "1150.00"
+    assert body["to_account"] is None
+    assert body["to_account_number"] == "10000002"
+    assert body["to_owner_name"] == "Maya Patel"
+
+    admin = login_headers(client)
+    assert client.get("/api/accounts/2", headers=admin).json()["balance"] == "4900.50"
+
+    maya = login_headers(client, "maya@example.com", "123", admin=False)
+    history = client.get("/api/me/transactions", headers=maya).json()
+    assert history[0]["type"] == "transfer_in"
+    assert history[0]["amount"] == "100.00"
+    assert history[0]["counterparty_account_number"] == "10000001"
+
+    sender_history = client.get("/api/me/transactions", headers=aarav).json()
+    assert sender_history[0]["type"] == "transfer_out"
+    assert sender_history[0]["counterparty_account_number"] == "10000002"
+
+
+def test_transfer_between_own_accounts(client) -> None:
+    aarav = login_headers(client, "aarav@example.com", "password", admin=False)
+    second_account = client.post("/api/accounts", json={"account_type": "savings"}, headers=aarav).json()
+
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": second_account["account_number"], "amount": "50.00"},
+        headers=aarav,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["from_account"]["balance"] == "1200.00"
+    assert body["to_account"]["id"] == second_account["id"]
+    assert body["to_account"]["balance"] == "50.00"
+
+
+def test_transfer_rejects_insufficient_funds(client) -> None:
+    headers = login_headers(client, "aarav@example.com", "password", admin=False)
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000002", "amount": "10000.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Insufficient funds"}
+
+
+def test_transfer_rejects_unknown_recipient(client) -> None:
+    headers = login_headers(client, "aarav@example.com", "password", admin=False)
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "999999999999", "amount": "10.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Recipient account not found"}
+
+
+def test_transfer_rejects_same_account(client) -> None:
+    headers = login_headers(client, "aarav@example.com", "password", admin=False)
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000001", "amount": "10.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Cannot transfer to the same account"}
+
+
+def test_transfer_requires_ownership_of_source_account(client) -> None:
+    headers = login_headers(client, "maya@example.com", "123", admin=False)
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000002", "amount": "10.00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+
+def test_transfer_requires_customer_login(client) -> None:
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000002", "amount": "10.00"},
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/transfers",
+        json={"from_account_id": 1, "to_account_number": "10000002", "amount": "10.00"},
+        headers=login_headers(client),
+    )
+    assert response.status_code == 403
+
+
 def test_customer_delete_rejects_unverified_user_id_header(client):
     response = client.delete("/api/customers/5", headers={"X-User-Id": "3"})
     assert response.status_code == 401

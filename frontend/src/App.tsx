@@ -4,6 +4,7 @@ import type { Page } from "./components/layout/Sidebar";
 import { AccountsPage } from "./components/accounts/AccountsPage";
 import { MyAccountsPage } from "./components/accounts/MyAccountsPage";
 import { MyTransactionsPage } from "./components/accounts/MyTransactionsPage";
+import { MyTransfersPage } from "./components/accounts/MyTransfersPage";
 import { CustomersPage } from "./components/users/CustomersPage";
 import { AdminsPage } from "./components/users/AdminsPage";
 import { MyProfilePage } from "./components/users/MyProfilePage";
@@ -70,6 +71,7 @@ export default function App() {
       {me.role === "admin" && page === "admins" && <AdminsPage />}
       {me.role === "customer" && page === "my-accounts" && <MyAccountsPage me={me} />}
       {me.role === "customer" && page === "my-transactions" && <MyTransactionsPage />}
+      {me.role === "customer" && page === "my-transfers" && <MyTransfersPage me={me} />}
       {me.role === "customer" && page === "my-profile" && <MyProfilePage me={me} onProfileUpdated={() => refresh()} />}
     </AppShell>
   );

@@ -1,6 +1,6 @@
 import type { Role } from "../../types/me";
 
-export type Page = "accounts" | "customers" | "admins" | "my-accounts" | "my-transactions" | "my-profile";
+export type Page = "accounts" | "customers" | "admins" | "my-accounts" | "my-transactions" | "my-transfers" | "my-profile";
 
 interface Props {
   role: Role;
@@ -52,16 +52,27 @@ export function Sidebar({ role, current, onNavigate }: Props) {
             <span className="pill">Soon</span>
           </button>
         )}
-        <button className="side-item disabled" title="Awaiting transfer endpoints">
-          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="17 1 21 5 17 9" />
-            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-            <polyline points="7 23 3 19 7 15" />
-            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-          </svg>
-          <span className="lbl">Transfers</span>
-          <span className="pill">Soon</span>
-        </button>
+        {role === "customer" ? (
+          <button className={`side-item${current === "my-transfers" ? " active" : ""}`} onClick={() => onNavigate("my-transfers")}>
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            <span className="lbl">Transfers</span>
+          </button>
+        ) : (
+          <button className="side-item disabled" title="Administrators cannot transact on accounts">
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            <span className="lbl">Transfers</span>
+          </button>
+        )}
         {role === "admin" ? (
           <button className={`side-item${current === "customers" ? " active" : ""}`} onClick={() => onNavigate("customers")}>
             <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -116,6 +116,14 @@ class MoneyRequest(BaseModel):
     amount: Decimal = Field(gt=0, decimal_places=2)
 
 
+class TransferRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_account_id: int
+    to_account_number: NonBlankString
+    amount: Decimal = Field(gt=0, decimal_places=2)
+
+
 class Account(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -125,7 +133,7 @@ class Account(BaseModel):
     account_type: AccountType
     balance: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
 
-TransactionType = Literal["deposit", "withdraw"]
+TransactionType = Literal["deposit", "withdraw", "transfer_in", "transfer_out"]
 
 
 class Transaction(BaseModel):
@@ -136,7 +144,15 @@ class Transaction(BaseModel):
     type: TransactionType
     amount: Decimal
     balance_after: Decimal
+    counterparty_account_number: str | None = None
     created_at: datetime
+
+
+class TransferResult(BaseModel):
+    from_account: Account
+    to_account: Account | None = None
+    to_account_number: str
+    to_owner_name: str
 
 
 class LoginRequest(BaseModel):

@@ -33,6 +33,7 @@ Customer-facing endpoints (available to signed-in customers):
 - `POST /api/accounts` - open a new account for the signed-in customer
 - `POST /api/accounts/{account_id}/deposit` - deposit money into an owned account
 - `POST /api/accounts/{account_id}/withdraw` - withdraw money from an owned account
+- `POST /api/transfers` - transfer money from an owned account to any account (your own or another customer's) by account number
 - `GET /api/me/transactions` - list the signed-in customer's deposits and withdrawals, newest first
 
 Admin-only endpoints:
@@ -51,7 +52,7 @@ Admin-only endpoints:
 - `GET /api/admins` - list admins
 - `POST /api/admins` - create an admin
 
-Deposits and withdrawals are customer-only — administrators cannot transact on any account. The frontend serves separate login pages for each role: `/` for customers and `/admin/login` for administrators.
+Deposits and withdrawals are customer-only — administrators cannot transact on any account. Transfers move money atomically between a customer's own account and a recipient account identified by account number; the recipient can belong to any customer. The frontend serves separate login pages for each role: `/` for customers and `/admin/login` for administrators.
 
 Run the tests with:
 

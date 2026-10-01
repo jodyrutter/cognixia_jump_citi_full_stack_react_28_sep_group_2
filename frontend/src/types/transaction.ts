@@ -1,4 +1,4 @@
-export type TransactionType = "deposit" | "withdraw";
+export type TransactionType = "deposit" | "withdraw" | "transfer_in" | "transfer_out";
 
 export interface Transaction {
   id: number;
@@ -8,5 +8,6 @@ export interface Transaction {
   type: TransactionType;
   amount: string;
   balance_after: string;
+  counterparty_account_number?: string | null;
   created_at: string;
 }

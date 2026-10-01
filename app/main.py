@@ -12,13 +12,15 @@ from slowapi.util import get_remote_address
 
 from . import auth
 from .auth import AdminUser, CurrentUser, logout_session
-from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction
+from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction, TransferRequest, TransferResult
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
     CustomerNotFoundError,
     InsufficientFundsError,
     InvalidAmountError,
+    RecipientNotFoundError,
+    SameAccountTransferError,
 )
 from .mongo_store import MongoAccountStore, MongoUserStore, get_user_store, mongo_account_store, EmailAlreadyExistsError
 from .services.user_service import UserService, CustomerHasAccountsError
@@ -31,6 +33,7 @@ app = FastAPI(title="Banking API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1):\d+$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -116,6 +119,16 @@ async def insufficient_funds_handler(_request: Request, _exception: Insufficient
     return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
 
 
+@app.exception_handler(RecipientNotFoundError)
+async def recipient_not_found_handler(_request: Request, _exception: RecipientNotFoundError) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": "Recipient account not found"})
+
+
+@app.exception_handler(SameAccountTransferError)
+async def same_account_transfer_handler(_request: Request, _exception: SameAccountTransferError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Cannot transfer to the same account"})
+
+
 # ---------------------------------------------------------------------------
 # Public / shared endpoints — usable without authentication, or by either role.
 # ---------------------------------------------------------------------------
@@ -196,6 +209,12 @@ def deposit(account_id: int, request: MoneyRequest, service: Service, current_us
 def withdraw(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
     _authorize_transaction(account_id, current_user, service)
     return service.withdraw(account_id, request.amount)
+
+
+@app.post("/api/transfers", response_model=TransferResult, tags=["transactions"])
+def transfer(request: TransferRequest, service: Service, current_user: CurrentUser) -> TransferResult:
+    _authorize_transaction(request.from_account_id, current_user, service)
+    return service.transfer(request.from_account_id, request.to_account_number, request.amount)
 
 
 @app.patch("/api/me", response_model=Customer, tags=["auth"])

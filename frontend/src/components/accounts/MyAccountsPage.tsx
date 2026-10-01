@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { accountsApi } from "../../api/accounts";
 import { meApi } from "../../api/me";
+import { transfersApi } from "../../api/transfers";
 import { ApiError } from "../../api/client";
 import type { Account, AccountCreate } from "../../types/account";
 import type { Customer } from "../../types/customer";
@@ -9,12 +10,14 @@ import { SummaryCards } from "./SummaryCards";
 import { AccountsTable } from "./AccountsTable";
 import { AccountDrawer } from "./AccountDrawer";
 import { MoneyModal, type MoneyMode } from "./MoneyModal";
+import { TransferModal } from "./TransferModal";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
 // Only account creation is available to customers here; editing an existing
 // account's type and viewing a single account by id are admin-only endpoints.
 type DrawerMode = { kind: "create" } | null;
 type MoneyState = { mode: MoneyMode; account: Account } | null;
+type TransferState = { fromAccountId: number } | null;
 
 interface Props {
   me: Me;
@@ -32,6 +35,10 @@ export function MyAccountsPage({ me }: Props) {
   const [money, setMoney] = useState<MoneyState>(null);
   const [moneyError, setMoneyError] = useState<string | undefined>(undefined);
   const [moneySubmitting, setMoneySubmitting] = useState(false);
+
+  const [transfer, setTransfer] = useState<TransferState>(null);
+  const [transferError, setTransferError] = useState<string | undefined>(undefined);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
 
   const [toast, setToast] = useState<ToastMessage | null>(null);
   function showToast(message: string) {
@@ -98,7 +105,33 @@ export function MyAccountsPage({ me }: Props) {
     }
   }
 
-  const overlayOpen = drawer !== null || money !== null;
+  async function handleTransfer(data: { fromAccountId: number; toAccountNumber: string; amount: string }) {
+    setTransferSubmitting(true);
+    setTransferError(undefined);
+    try {
+      const result = await transfersApi.create({
+        from_account_id: data.fromAccountId,
+        to_account_number: data.toAccountNumber,
+        amount: data.amount,
+      });
+      setAccounts((prev) =>
+        prev.map((a) => {
+          if (a.id === result.from_account.id) return result.from_account;
+          if (result.to_account && a.id === result.to_account.id) return result.to_account;
+          return a;
+        }),
+      );
+      const money$ = `$${Number(data.amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      showToast(`Sent ${money$} to ${result.to_owner_name} · ${result.to_account_number}`);
+      setTransfer(null);
+    } catch (err) {
+      setTransferError(err instanceof ApiError ? err.detail ?? err.message : "Transfer failed");
+    } finally {
+      setTransferSubmitting(false);
+    }
+  }
+
+  const overlayOpen = drawer !== null || money !== null || transfer !== null;
 
   return (
     <>
@@ -118,6 +151,17 @@ export function MyAccountsPage({ me }: Props) {
             </svg>
             Refresh
           </button>
+          {accounts.length > 0 && (
+            <button className="btn btn-ghost" onClick={() => { setTransferError(undefined); setTransfer({ fromAccountId: accounts[0].id }); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 1 21 5 17 9" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              Transfer
+            </button>
+          )}
           <button className="btn btn-primary" onClick={() => { setDrawerError(undefined); setDrawer({ kind: "create" }); }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -168,10 +212,11 @@ export function MyAccountsPage({ me }: Props) {
           showOwner={false}
           onDeposit={(a) => { setMoneyError(undefined); setMoney({ mode: "deposit", account: a }); }}
           onWithdraw={(a) => { setMoneyError(undefined); setMoney({ mode: "withdraw", account: a }); }}
+          onTransfer={(a) => { setTransferError(undefined); setTransfer({ fromAccountId: a.id }); }}
         />
       )}
 
-      <div className={`overlay${overlayOpen ? " open" : ""}`} onClick={() => { setDrawer(null); setMoney(null); }} />
+      <div className={`overlay${overlayOpen ? " open" : ""}`} onClick={() => { setDrawer(null); setMoney(null); setTransfer(null); }} />
       <AccountDrawer
         open={drawer !== null}
         mode={drawer ?? { kind: "create" }}
@@ -192,6 +237,15 @@ export function MyAccountsPage({ me }: Props) {
         errorDetail={moneyError}
         onCancel={() => setMoney(null)}
         onConfirm={handleMoney}
+      />
+      <TransferModal
+        open={transfer !== null}
+        accounts={accounts}
+        initialFromAccountId={transfer?.fromAccountId}
+        submitting={transferSubmitting}
+        errorDetail={transferError}
+        onCancel={() => setTransfer(null)}
+        onConfirm={handleTransfer}
       />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </>

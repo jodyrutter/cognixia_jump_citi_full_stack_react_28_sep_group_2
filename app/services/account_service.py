@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from ..models import Account, AccountCreate, AccountUpdate, Transaction
+from ..models import Account, AccountCreate, AccountUpdate, Transaction, TransferResult
 from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
 
 
@@ -17,6 +17,14 @@ class InvalidAmountError(Exception):
 
 
 class InsufficientFundsError(Exception):
+    pass
+
+
+class RecipientNotFoundError(Exception):
+    pass
+
+
+class SameAccountTransferError(Exception):
     pass
 
 
@@ -81,6 +89,31 @@ class AccountService:
             raise InsufficientFundsError
 
         return account
+
+    def transfer(self, from_account_id: int, to_account_number: str, amount: Decimal) -> TransferResult:
+        self._validate_amount(amount)
+
+        from_account = self.get_account(from_account_id)
+
+        to_account = self._store.get_by_account_number(to_account_number)
+        if to_account is None:
+            raise RecipientNotFoundError
+        if to_account.id == from_account.id:
+            raise SameAccountTransferError
+
+        result = self._store.transfer(from_account.id, to_account.id, amount)
+        if result is None:
+            raise InsufficientFundsError
+        updated_from, updated_to = result
+
+        same_owner = updated_to.owner_id == updated_from.owner_id
+        recipient = self._user_store.get(updated_to.owner_id)
+        return TransferResult(
+            from_account=updated_from,
+            to_account=updated_to if same_owner else None,
+            to_account_number=updated_to.account_number,
+            to_owner_name=recipient.name if recipient else "Unknown",
+        )
 
     @staticmethod
     def _validate_amount(amount: Decimal) -> None:

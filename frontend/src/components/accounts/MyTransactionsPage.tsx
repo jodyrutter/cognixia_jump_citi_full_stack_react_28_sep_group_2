@@ -51,7 +51,7 @@ export function MyTransactionsPage() {
     let deposits = 0;
     let withdrawals = 0;
     for (const t of visible) {
-      if (t.type === "deposit") deposits += Number(t.amount);
+      if (t.type === "deposit" || t.type === "transfer_in") deposits += Number(t.amount);
       else withdrawals += Number(t.amount);
     }
     return { deposits, withdrawals };
@@ -64,7 +64,7 @@ export function MyTransactionsPage() {
       <div className="page-head">
         <div>
           <h1>Transactions</h1>
-          <div className="subtitle">Every deposit and withdrawal you've made across your accounts.</div>
+          <div className="subtitle">Every deposit, withdrawal, and transfer you've made across your accounts.</div>
         </div>
         <div className="page-head-actions">
           <button className="btn btn-ghost" onClick={refresh} disabled={loading}>
@@ -106,6 +106,8 @@ export function MyTransactionsPage() {
             <option value="all">All</option>
             <option value="deposit">Deposits</option>
             <option value="withdraw">Withdrawals</option>
+            <option value="transfer_in">Transfers in</option>
+            <option value="transfer_out">Transfers out</option>
           </select>
         </label>
         <div className="spacer" />
@@ -131,7 +133,7 @@ export function MyTransactionsPage() {
           <h3>{transactions.length === 0 ? "No transactions yet" : "No matching transactions"}</h3>
           <p>
             {transactions.length === 0
-              ? "Deposits and withdrawals you make from My Accounts will appear here."
+              ? "Deposits, withdrawals, and transfers you make from My Accounts will appear here."
               : "Try a different account or type filter."}
           </p>
         </div>
@@ -143,6 +145,7 @@ export function MyTransactionsPage() {
                 <th style={{ width: 200 }}>Date</th>
                 <th style={{ width: 160 }}>Account #</th>
                 <th>Type</th>
+                <th>Details</th>
                 <th className="right" style={{ width: 150 }}>Amount</th>
                 <th className="right" style={{ width: 160 }}>Balance After</th>
               </tr>
@@ -154,21 +157,35 @@ export function MyTransactionsPage() {
                       <td><span className="skel" style={{ width: 130 }} /></td>
                       <td><span className="skel" style={{ width: 100 }} /></td>
                       <td><span className="skel" style={{ width: 70 }} /></td>
+                      <td><span className="skel" style={{ width: 90 }} /></td>
                       <td className="amount"><span className="skel" style={{ width: 70 }} /></td>
                       <td className="balance"><span className="skel" style={{ width: 80 }} /></td>
                     </tr>
                   ))
                 : visible.map((t) => {
-                    const isDeposit = t.type === "deposit";
+                    const isCredit = t.type === "deposit" || t.type === "transfer_in";
+                    const labels: Record<string, string> = {
+                      deposit: "Deposit",
+                      withdraw: "Withdrawal",
+                      transfer_in: "Transfer In",
+                      transfer_out: "Transfer Out",
+                    };
+                    const details =
+                      t.type === "transfer_out"
+                        ? `To ${t.counterparty_account_number}`
+                        : t.type === "transfer_in"
+                        ? `From ${t.counterparty_account_number}`
+                        : "—";
                     return (
                       <tr key={t.id}>
                         <td className="when">{fmtDate(t.created_at)}</td>
                         <td className="acct">{t.account_number}</td>
                         <td>
-                          <span className={`type-badge type-${t.type}`}>{isDeposit ? "Deposit" : "Withdrawal"}</span>
+                          <span className={`type-badge type-${t.type}`}>{labels[t.type]}</span>
                         </td>
-                        <td className={`amount ${isDeposit ? "credit" : "debit"}`}>
-                          {isDeposit ? "+" : "−"}{fmtMoney(t.amount)}
+                        <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{details}</td>
+                        <td className={`amount ${isCredit ? "credit" : "debit"}`}>
+                          {isCredit ? "+" : "−"}{fmtMoney(t.amount)}
                         </td>
                         <td className="balance">{fmtMoney(t.balance_after)}</td>
                       </tr>
