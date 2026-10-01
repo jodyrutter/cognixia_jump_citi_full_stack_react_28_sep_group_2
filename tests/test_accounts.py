@@ -774,3 +774,55 @@ def test_admin_cannot_transact_on_any_account(client, operation):
 def test_transact_requires_authentication(client, operation):
     response = client.post(f"/api/accounts/1/{operation}", json={"amount": "10.00"})
     assert response.status_code == 401
+
+
+def test_admin_can_create_account_for_customer_by_email(client):
+    response = client.post(
+        "/api/admin/accounts",
+        json={"owner_email": "Aarav@Example.com", "account_type": "savings"},
+        headers=login_headers(client),
+    )
+    assert response.status_code == 201
+    assert response.json()["owner_id"] == 1
+    assert response.json()["account_type"] == "savings"
+    assert response.json()["balance"] == "0.00"
+
+
+def test_admin_cannot_create_account_for_admin(client):
+    response = client.post(
+        "/api/admin/accounts",
+        json={"owner_email": "test-admin@example.com", "account_type": "checking"},
+        headers=login_headers(client),
+    )
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Accounts cannot be created for admins"}
+
+
+def test_admin_create_account_unknown_email(client):
+    response = client.post(
+        "/api/admin/accounts",
+        json={"owner_email": "nobody@example.com", "account_type": "checking"},
+        headers=login_headers(client),
+    )
+    assert response.status_code == 404
+
+
+def test_admin_create_account_requires_admin(client):
+    payload = {"owner_email": "aarav@example.com", "account_type": "checking"}
+    assert client.post("/api/admin/accounts", json=payload).status_code == 401
+    customer_headers = login_headers(client, "aarav@example.com", "password", admin=False)
+    assert client.post("/api/admin/accounts", json=payload, headers=customer_headers).status_code == 403
+
+
+def test_admin_lists_all_transactions(client):
+    aarav = login_headers(client, "aarav@example.com", "password", admin=False)
+    maya = login_headers(client, "maya@example.com", "123", admin=False)
+    assert client.post("/api/accounts/1/deposit", json={"amount": "5.00"}, headers=aarav).status_code == 200
+    assert client.post("/api/accounts/2/withdraw", json={"amount": "3.00"}, headers=maya).status_code == 200
+
+    response = client.get("/api/transactions", headers=login_headers(client))
+    assert response.status_code == 200
+    assert {t["owner_id"] for t in response.json()} == {1, 2}
+
+    assert client.get("/api/transactions").status_code == 401
+    assert client.get("/api/transactions", headers=aarav).status_code == 403

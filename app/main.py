@@ -12,13 +12,14 @@ from slowapi.util import get_remote_address
 
 from . import auth
 from .auth import AdminUser, CurrentUser, logout_session
-from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction
+from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, AdminAccountCreate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
     CustomerNotFoundError,
     InsufficientFundsError,
     InvalidAmountError,
+    OwnerIsAdminError,
 )
 from .mongo_store import MongoAccountStore, MongoUserStore, get_user_store, mongo_account_store, EmailAlreadyExistsError
 from .services.user_service import UserService, CustomerHasAccountsError
@@ -114,6 +115,11 @@ async def invalid_amount_handler(_request: Request, _exception: InvalidAmountErr
 @app.exception_handler(InsufficientFundsError)
 async def insufficient_funds_handler(_request: Request, _exception: InsufficientFundsError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": "Insufficient funds"})
+
+
+@app.exception_handler(OwnerIsAdminError)
+async def owner_is_admin_handler(_request: Request, _exception: OwnerIsAdminError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": "Accounts cannot be created for admins"})
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +300,16 @@ def create_admin(user_data: AdminCreate, service: Users, admin: AdminUser) -> Ad
 @app.get("/api/accounts", response_model=list[Account], tags=["accounts"])
 def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
     return service.list_accounts()
+
+
+@app.post("/api/admin/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
+def admin_create_account(account_data: AdminAccountCreate, service: Service, _admin: AdminUser) -> Account:
+    return service.create_account_for_email(account_data.owner_email, account_data.account_type)
+
+
+@app.get("/api/transactions", response_model=list[Transaction], tags=["transactions"])
+def list_transactions(service: Service, _admin: AdminUser) -> list[Transaction]:
+    return service.list_transactions()
 
 
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])

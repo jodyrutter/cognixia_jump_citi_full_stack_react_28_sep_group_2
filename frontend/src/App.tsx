@@ -4,6 +4,7 @@ import type { Page } from "./components/layout/Sidebar";
 import { AccountsPage } from "./components/accounts/AccountsPage";
 import { MyAccountsPage } from "./components/accounts/MyAccountsPage";
 import { MyTransactionsPage } from "./components/accounts/MyTransactionsPage";
+import { AllTransactionsPage } from "./components/accounts/AllTransactionsPage";
 import { CustomersPage } from "./components/users/CustomersPage";
 import { AdminsPage } from "./components/users/AdminsPage";
 import { MyProfilePage } from "./components/users/MyProfilePage";
@@ -23,7 +24,7 @@ export default function App() {
 
   useEffect(() => {
     if (me) {
-      setPage((current) => current ?? (me.role === "admin" ? "accounts" : "my-accounts"));
+      setPage((current) => current ?? (me.role === "admin" ? "customers" : "my-accounts"));
       navigate("/");
     }
     if (!me) setPage(null);
@@ -68,6 +69,7 @@ export default function App() {
       {me.role === "admin" && page === "accounts" && <AccountsPage />}
       {me.role === "admin" && page === "customers" && <CustomersPage />}
       {me.role === "admin" && page === "admins" && <AdminsPage />}
+      {me.role === "admin" && page === "transactions" && <AllTransactionsPage />}
       {me.role === "customer" && page === "my-accounts" && <MyAccountsPage me={me} />}
       {me.role === "customer" && page === "my-transactions" && <MyTransactionsPage />}
       {me.role === "customer" && page === "my-profile" && <MyProfilePage me={me} onProfileUpdated={() => refresh()} />}

@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function AppShell({ children, page, onNavigate, me, onLogout }: Props) {
-  const homePage: Page = me.role === "admin" ? "accounts" : "my-accounts";
+  const homePage: Page = me.role === "admin" ? "customers" : "my-accounts";
   return (
     <div className="app">
       <TopBar me={me} onLogout={onLogout} onBrandClick={() => onNavigate(homePage)} />

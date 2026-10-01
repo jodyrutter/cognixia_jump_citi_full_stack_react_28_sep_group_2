@@ -25,10 +25,7 @@ export function DeleteCustomerModal({ open, customer, submitting, onCancel, onCo
             You are about to permanently delete <b>{customer.name}</b> ({customer.email}).
           </p>
         )}
-        <div className="warn-line">
-          Requires admin privileges. Blocked if the customer still owns any accounts —
-          delete or reassign their accounts first.
-        </div>
+        <div className="warn-line">This action cannot be undone.</div>
       </div>
       <div className="modal-foot">
         <button className="btn btn-ghost" onClick={onCancel} disabled={submitting}>Cancel</button>

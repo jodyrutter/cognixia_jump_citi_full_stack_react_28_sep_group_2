@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Account, AccountCreate, AccountType, AccountUpdate } from "../../types/account";
 import type { Customer } from "../../types/customer";
+import { isValidEmail } from "../../utils/validation";
 
 type Mode = { kind: "create" } | { kind: "edit"; account: Account };
 
@@ -9,18 +10,23 @@ interface Props {
   mode: Mode;
   customers: Customer[];
   currentUserEmail: string;
+  ownerEmailEditable?: boolean;
   submitting: boolean;
   errorDetail?: string;
   onClose: () => void;
-  onCreate: (data: AccountCreate) => void;
+  onCreate: (data: AccountCreate, ownerEmail: string) => void;
   onUpdate: (id: number, data: AccountUpdate) => void;
 }
 
-export function AccountDrawer({ open, mode, customers, currentUserEmail, submitting, errorDetail, onClose, onCreate, onUpdate }: Props) {
+export function AccountDrawer({ open, mode, customers, currentUserEmail, ownerEmailEditable = false, submitting, errorDetail, onClose, onCreate, onUpdate }: Props) {
   const [accountType, setAccountType] = useState<AccountType>("checking");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [touched, setTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setOwnerEmail("");
+    setTouched(false);
     if (mode.kind === "edit") {
       setAccountType(mode.account.account_type);
     } else {
@@ -29,12 +35,20 @@ export function AccountDrawer({ open, mode, customers, currentUserEmail, submitt
   }, [open, mode]);
 
   const isCreate = mode.kind === "create";
+  const ownerEmailErr = !ownerEmailEditable
+    ? ""
+    : ownerEmail.trim() === ""
+      ? "Required."
+      : !isValidEmail(ownerEmail.trim())
+        ? "Must be a valid email."
+        : "";
   const canSubmit = !submitting;
 
   function handleSubmit() {
     if (isCreate) {
-      if (!canSubmit) return;
-      onCreate({ account_type: accountType });
+      setTouched(true);
+      if (!canSubmit || ownerEmailErr) return;
+      onCreate({ account_type: accountType }, ownerEmail.trim());
     } else if (mode.kind === "edit") {
       onUpdate(mode.account.id, { account_type: accountType });
     }
@@ -85,11 +99,35 @@ export function AccountDrawer({ open, mode, customers, currentUserEmail, submitt
 
         {isCreate && (
           <>
-            <div className="form-group">
-              <label>Owner</label>
-              <input type="email" value={currentUserEmail} disabled />
-              <div className="help">The account belongs to the signed-in customer.</div>
-            </div>
+            {ownerEmailEditable ? (
+              <div className="form-group">
+                <label>Owner Email <span className="req">*</span></label>
+                <input
+                  type="text"
+                  list="account-owner-emails"
+                  value={ownerEmail}
+                  onChange={(e) => setOwnerEmail(e.target.value)}
+                  onBlur={() => setTouched(true)}
+                  placeholder="customer@example.com"
+                />
+                <datalist id="account-owner-emails">
+                  {customers.map((c) => (
+                    <option key={c.user_id} value={c.email}>{c.name}</option>
+                  ))}
+                </datalist>
+                {touched && ownerEmailErr ? (
+                  <div className="field-error">{ownerEmailErr}</div>
+                ) : (
+                  <div className="help">The customer who will own this account. Admins cannot own accounts.</div>
+                )}
+              </div>
+            ) : (
+              <div className="form-group">
+                <label>Owner</label>
+                <input type="email" value={currentUserEmail} disabled />
+                <div className="help">The account belongs to the signed-in customer.</div>
+              </div>
+            )}
           </>
         )}
 

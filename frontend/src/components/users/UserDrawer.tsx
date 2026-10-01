@@ -20,6 +20,7 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [address, setAddress] = useState("");
   const [touched, setTouched] = useState(false);
 
@@ -29,6 +30,7 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
     if (!open) return;
     setTouched(false);
     setPassword("");
+    setConfirmPassword("");
     if (mode.kind === "edit") {
       setName(mode.customer.name);
       setEmail(mode.customer.email);
@@ -46,7 +48,8 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
   const passwordHint = "At least 8 characters, including one special character.";
   const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);
   const passwordErr = isCreate ? (passwordInvalid ? passwordHint : "") : password !== "" && passwordInvalid ? passwordHint : "";
-  const anyErr = nameErr || emailErr || passwordErr || addressErr;
+  const confirmErr = isCreate && confirmPassword !== password ? "Passwords do not match." : "";
+  const anyErr = nameErr || emailErr || passwordErr || confirmErr || addressErr;
 
   function submit() {
     setTouched(true);
@@ -126,6 +129,20 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
             </div>
           )}
         </div>
+
+        {isCreate && (
+          <div className="form-group">
+            <label>Retype Password <span className="req">*</span></label>
+            <input
+              type="text"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="Enter the password again"
+            />
+            {touched && confirmErr && <div className="field-error">{confirmErr}</div>}
+          </div>
+        )}
 
         <div className="form-group">
           <label>Address <span className="req">*</span></label>

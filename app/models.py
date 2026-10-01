@@ -105,6 +105,13 @@ class AccountOpenRequest(BaseModel):
     account_type: AccountType
 
 
+class AdminAccountCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    owner_email: NonBlankString
+    account_type: AccountType
+
+
 class AccountUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
