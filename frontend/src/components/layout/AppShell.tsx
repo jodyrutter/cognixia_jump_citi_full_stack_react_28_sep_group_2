@@ -12,9 +12,10 @@ interface Props {
 }
 
 export function AppShell({ children, page, onNavigate, me, onLogout }: Props) {
+  const homePage: Page = me.role === "admin" ? "accounts" : "my-accounts";
   return (
     <div className="app">
-      <TopBar me={me} onLogout={onLogout} />
+      <TopBar me={me} onLogout={onLogout} onBrandClick={() => onNavigate(homePage)} />
       <div className="body-split">
         <Sidebar role={me.role} current={page} onNavigate={onNavigate} />
         <main className="main">{children}</main>

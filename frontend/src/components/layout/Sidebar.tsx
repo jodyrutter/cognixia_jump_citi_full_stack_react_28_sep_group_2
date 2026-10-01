@@ -115,7 +115,7 @@ export function Sidebar({ role, current, onNavigate }: Props) {
         </div>
       )}
       <div className="side-footer-card">
-        <div className="title">API v0.1.0 · Healthy</div>
+
         <div className="sub">All services operational.</div>
       </div>
     </aside>

@@ -1,3 +1,4 @@
+import re
 import string
 from datetime import datetime
 from decimal import Decimal
@@ -12,6 +13,9 @@ NonBlankString = Annotated[str, StringConstraints(strip_whitespace=True, min_len
 MIN_PASSWORD_LENGTH = 8
 _ALPHANUMERIC = frozenset(string.ascii_letters + string.digits)
 
+# Requires a letter before the @, a letter between the @ and the period, and a letter after the period.
+_EMAIL_PATTERN = re.compile(r"^[^\s@]*[A-Za-z][^\s@]*@[^\s@]*[A-Za-z][^\s@]*\.[^\s@]*[A-Za-z][^\s@]*$")
+
 
 def _validate_password_strength(password: str) -> str:
     if len(password) < MIN_PASSWORD_LENGTH:
@@ -19,6 +23,12 @@ def _validate_password_strength(password: str) -> str:
     if all(char in _ALPHANUMERIC for char in password):
         raise ValueError("Password must contain at least one special character")
     return password
+
+
+def _validate_email_format(email: str) -> str:
+    if not _EMAIL_PATTERN.match(email):
+        raise ValueError("Must be a valid email address")
+    return email
 
 
 class User(BaseModel):
@@ -42,6 +52,11 @@ class CustomerCreate(BaseModel):
     password: NonBlankString
     address: NonBlankString
 
+    @field_validator("email")
+    @classmethod
+    def _email_format(cls, value: str) -> str:
+        return _validate_email_format(value)
+
     @field_validator("password")
     @classmethod
     def _password_strength(cls, value: str) -> str:
@@ -53,6 +68,11 @@ class CustomerUpdate(BaseModel):
     email: NonBlankString | None = None
     password: NonBlankString | None = None
     address: NonBlankString | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _email_format(cls, value: str | None) -> str | None:
+        return _validate_email_format(value) if value is not None else value
 
     @field_validator("password")
     @classmethod

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Customer, CustomerCreate, CustomerUpdate } from "../../types/customer";
+import { isValidEmail } from "../../utils/validation";
 
 export type UserDrawerMode =
   | { kind: "create"; role: "customer" | "admin" }
@@ -40,7 +41,7 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
   }, [open, mode]);
 
   const nameErr = name.trim() === "" ? "Required." : "";
-  const emailErr = email.trim() === "" ? "Required." : !email.includes("@") ? "Must be an email." : "";
+  const emailErr = email.trim() === "" ? "Required." : !isValidEmail(email.trim()) ? "Must be a valid email." : "";
   const addressErr = address.trim() === "" ? "Required." : "";
   const passwordHint = "At least 8 characters, including one special character.";
   const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);

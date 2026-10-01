@@ -69,10 +69,6 @@ export function AccountDrawer({ open, mode, customers, currentUserEmail, submitt
         {!isCreate && mode.kind === "edit" && (
           <div className="readonly-box">
             <div className="row">
-              <span className="k">Account ID</span>
-              <span className="v">#{String(mode.account.id).padStart(4, "0")}</span>
-            </div>
-            <div className="row">
               <span className="k">Account Number</span>
               <span className="v">{mode.account.account_number}</span>
             </div>

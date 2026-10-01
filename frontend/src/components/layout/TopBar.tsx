@@ -4,6 +4,7 @@ import type { Me } from "../../types/me";
 interface Props {
   me: Me | null;
   onLogout: () => void;
+  onBrandClick: () => void;
 }
 
 function initialsFor(name: string) {
@@ -12,7 +13,7 @@ function initialsFor(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function TopBar({ me, onLogout }: Props) {
+export function TopBar({ me, onLogout, onBrandClick }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -37,19 +38,21 @@ export function TopBar({ me, onLogout }: Props) {
 
   return (
     <header className="topbar">
-      <div className="brand">
+      <button className="brand" onClick={onBrandClick} aria-label="Go to My Accounts">
         <div className="dot" title="Citi" />
         <div className="wordmark">citi</div>
         <div className="divider" />
         <div className="app-name">Banking Console</div>
-      </div>
-      <div className="topbar-search">
-        <svg className="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <input type="text" placeholder="Search accounts, customers, transactions…" />
-      </div>
+      </button>
+      {me?.role === "admin" && (
+        <div className="topbar-search">
+          <svg className="ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input type="text" placeholder="Search accounts, customers, transactions…" />
+        </div>
+      )}
       <div className="spacer" />
       <div className="actions">
         <button className="icon-btn" title="Help">

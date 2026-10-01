@@ -35,7 +35,6 @@ export function AccountsTable({ accounts, customersById, loading, showOwner = tr
         <table>
           <thead>
             <tr>
-              <th style={{ width: 60 }}>ID</th>
               <th style={{ width: 160 }}>Account #</th>
               {showOwner && <th>Owner</th>}
               <th style={{ width: 110 }}>Type</th>
@@ -46,7 +45,6 @@ export function AccountsTable({ accounts, customersById, loading, showOwner = tr
           <tbody>
             {Array.from({ length: 6 }).map((_, i) => (
               <tr key={i} className="skeleton-row">
-                <td><span className="skel" style={{ width: 38 }} /></td>
                 <td><span className="skel" style={{ width: 100 }} /></td>
                 {showOwner && <td><span className="skel" style={{ width: 180 }} /></td>}
                 <td><span className="skel" style={{ width: 70 }} /></td>
@@ -65,7 +63,6 @@ export function AccountsTable({ accounts, customersById, loading, showOwner = tr
       <table>
         <thead>
           <tr>
-            <th style={{ width: 60 }}>ID</th>
             <th style={{ width: 160 }}>Account #</th>
             {showOwner && <th>Owner</th>}
             <th style={{ width: 110 }}>Type</th>
@@ -80,7 +77,6 @@ export function AccountsTable({ accounts, customersById, loading, showOwner = tr
             const initials = owner ? initialsOf(owner.name) : `#${a.owner_id}`;
             return (
               <tr key={a.id}>
-                <td className="id">#{String(a.id).padStart(4, "0")}</td>
                 <td className="acct">{a.account_number}</td>
                 {showOwner && (
                   <td className="owner">

@@ -4,6 +4,7 @@ import { ApiError } from "../../api/client";
 import type { CustomerUpdate } from "../../types/customer";
 import type { Me } from "../../types/me";
 import { Toast, type ToastMessage } from "../ui/Toast";
+import { isValidEmail } from "../../utils/validation";
 
 interface Props {
   me: Me;
@@ -33,7 +34,7 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
   }, [editing, me]);
 
   const nameErr = name.trim() === "" ? "Required." : "";
-  const emailErr = email.trim() === "" ? "Required." : !email.includes("@") ? "Must be an email." : "";
+  const emailErr = email.trim() === "" ? "Required." : !isValidEmail(email.trim()) ? "Must be a valid email." : "";
   const addressErr = address.trim() === "" ? "Required." : "";
   const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);
   const passwordErr = password !== "" && passwordInvalid ? "At least 8 characters, including one special character." : "";

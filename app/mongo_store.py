@@ -12,8 +12,6 @@ from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 from pwdlib import PasswordHash
 
-from fastapi import HTTPException
-
 from .models import (
     Account,
     AccountCreate,
@@ -301,13 +299,7 @@ class MongoUserStore:
         return _user_from_document(document)
 
     def _create_user(self, user_data: CustomerCreate | AdminCreate, admin: bool) -> User:
-        email_error = HTTPException(
-            status_code=422,
-            detail="Invalid email address",
-        )
         self._ensure_initialized()
-        if "@" not in user_data.email:
-            raise email_error
         counter = self._counters.find_one_and_update(
             {"_id": "users"},
             {"$inc": {"value": 1}},
@@ -338,11 +330,6 @@ class MongoUserStore:
         return self._create_user(user_data, admin=True)  # type: ignore[return-value]
 
     def update_customer(self, user_id: int, user_data: CustomerUpdate) -> Customer | None:
-        email_error = HTTPException(
-            status_code=422,
-            detail="Invalid email address",
-        )
-
         self._ensure_initialized()
         customer = self.get_customer(user_id)
         if customer is None:
@@ -358,10 +345,6 @@ class MongoUserStore:
 
         if "email" in updates:
             email = updates["email"].strip()
-
-            if "@" not in email:
-                raise email_error
-
             updates["email"] = email
             updates["normalized_email"] = email.casefold()
 
