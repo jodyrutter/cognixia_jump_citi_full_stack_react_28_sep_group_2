@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from . import auth
-from .auth import AdminUser, CurrentUser, require_admin, logout_session
+from .auth import AdminUser, CurrentUser, logout_session
 from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
 from .services.account_service import (
     AccountNotFoundError,
@@ -42,17 +42,34 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 registration_limit = limiter.shared_limit("3/minute",scope="registration")
 
 
-@app.post("/api/login", tags=["auth"])
-@limiter.limit("5/minute")
-def login(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+def _login(credentials: LoginRequest, user_store: MongoUserStore, *, admin_only: bool) -> dict[str, str]:
     user = user_store.authenticate(credentials.email, credentials.password)
+    invalid_credentials = HTTPException(
+        status_code=401, detail="Invalid email or password", headers={"WWW-Authenticate": "Bearer"}
+    )
 
     if user is None:
-        raise HTTPException(status_code=401, detail="Invalid email or password", headers={"WWW-Authenticate": "Bearer"})
+        raise invalid_credentials
+    if admin_only and not isinstance(user, Admin):
+        raise invalid_credentials
+    if not admin_only and isinstance(user, Admin):
+        raise invalid_credentials
 
     token = auth.create_access_token(user)
 
     return {"access_token": token, "token_type": "bearer"}
+
+
+@app.post("/api/login/customer", tags=["auth"])
+@limiter.limit("5/minute")
+def login_customer(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+    return _login(credentials, user_store, admin_only=False)
+
+
+@app.post("/api/login/admin", tags=["auth"])
+@limiter.limit("5/minute")
+def login_admin(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+    return _login(credentials, user_store, admin_only=True)
 
 def get_account_store() -> MongoAccountStore:
     return account_store
@@ -138,8 +155,7 @@ def list_customers(service: Users, _admin: AdminUser) -> list[Customer]:
 
 
 @app.post("/api/customers", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["users"])
-@registration_limit
-def create_customer(request: Request, user_data: CustomerCreate, service: Users) -> Customer:
+def create_customer(user_data: CustomerCreate, service: Users, _admin: AdminUser) -> Customer:
     return service.create_customer(user_data)
 
 
@@ -149,15 +165,7 @@ def get_customer(customer_id: int, service: Users, _admin: AdminUser) -> Custome
 
 
 @app.patch("/api/customers/{customer_id}", response_model=Customer, tags=["users"])
-def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users, current_user:CurrentUser) -> Customer:
-    is_owner = current_user.user_id == customer_id
-    is_admin = isinstance(current_user, Admin)
-
-    if not is_owner and not is_admin:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only update your own profile",
-        )
+def update_customer(customer_id: int, user_data: CustomerUpdate, service: Users, _admin: AdminUser) -> Customer:
     return service.update_customer(customer_id, user_data)
 
 
@@ -168,15 +176,7 @@ def delete_customer(customer_id: int, _admin: AdminUser, service: Users) -> Resp
 
 
 @app.get("/api/customers/{customer_id}/accounts", response_model=list[Account], tags=["users"])
-def list_customer_accounts(customer_id: int, service: Service, current_user: CurrentUser) -> list[Account]:
-    is_owner = current_user.user_id == customer_id
-    is_admin = isinstance(current_user, Admin)
-
-    if not is_owner and not is_admin:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only view your own accounts",
-        )
+def list_customer_accounts(customer_id: int, service: Service, _admin: AdminUser) -> list[Account]:
     return service.list_customer_accounts(customer_id)
 
 
@@ -221,12 +221,8 @@ def list_accounts(service: Service, admin: AdminUser) -> list[Account]:
 
 
 @app.get("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def get_account(account_id: int, service: Service, current_user: CurrentUser) -> Account:
-    account = service.get_account(account_id)
-    if not isinstance(current_user, Admin) and current_user.user_id != account.owner_id:
-        raise HTTPException(status_code=403, detail="You can only view your own account")
-
-    return account
+def get_account(account_id: int, service: Service, _admin: AdminUser) -> Account:
+    return service.get_account(account_id)
 
 
 @app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])
@@ -242,15 +238,9 @@ def create_account(account_data: AccountOpenRequest, service: Service, current_u
 
 
 @app.patch("/api/accounts/{account_id}", response_model=Account, tags=["accounts"])
-def update_account(account_id: int, account_data: AccountUpdate, service: Service, current_user: CurrentUser) -> Account:
-    account = service.get_account(account_id)
-    if not isinstance(current_user, Admin) and current_user.user_id != account.owner_id:
-        raise HTTPException(status_code=403, detail="You can only update your own accounts")
-
-    if "balance" in account_data.model_fields_set:
-        require_admin(current_user)
-        if account_data.balance is None:
-            raise HTTPException(status_code=422, detail="Balance cannot be null")
+def update_account(account_id: int, account_data: AccountUpdate, service: Service, _admin: AdminUser) -> Account:
+    if "balance" in account_data.model_fields_set and account_data.balance is None:
+        raise HTTPException(status_code=422, detail="Balance cannot be null")
 
     return service.update_account(account_id, account_data)
 

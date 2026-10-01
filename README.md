@@ -22,24 +22,35 @@ The API is available at `http://127.0.0.1:8000`. Interactive documentation is at
 
 ## Endpoints
 
-- `GET /api/accounts` - list accounts (admin only)
-- `GET /api/accounts/{account_id}` - get one account (owner or admin)
-- `POST /api/accounts` - create an account
-- `PATCH /api/accounts/{account_id}` - update an account (owner or admin; only admins can change balances)
-- `DELETE /api/accounts/{account_id}` - delete an account
-- `POST /api/accounts/{account_id}/deposit` - deposit money (owner or admin)
-- `POST /api/accounts/{account_id}/withdraw` - withdraw money (owner or admin)
+Customer-facing endpoints (available to signed-in customers):
+
+- `POST /api/login/customer` - log in as a customer
+- `POST /api/signup` - self-register as a new customer
+- `POST /api/logout` - log out (customers and admins)
 - `GET /api/me` - get the signed-in user's profile and role
-- `PATCH /api/me` - update the signed-in customer's profile
-- `GET /api/me/accounts` - list the signed-in customer's accounts
-- `GET /api/customers` - list customers (admin only)
+- `PATCH /api/me` - update the signed-in customer's own profile
+- `GET /api/me/accounts` - list the signed-in customer's own accounts
+- `POST /api/accounts` - open a new account for the signed-in customer
+- `POST /api/accounts/{account_id}/deposit` - deposit money into an owned account
+- `POST /api/accounts/{account_id}/withdraw` - withdraw money from an owned account
+
+Admin-only endpoints:
+
+- `POST /api/login/admin` - log in as an administrator
+- `GET /api/accounts` - list all accounts
+- `GET /api/accounts/{account_id}` - get one account
+- `PATCH /api/accounts/{account_id}` - update an account (account type or balance)
+- `DELETE /api/accounts/{account_id}` - delete an account
+- `GET /api/customers` - list customers
 - `POST /api/customers` - create a customer
-- `GET /api/customers/{customer_id}` - get one customer (admin only)
+- `GET /api/customers/{customer_id}` - get one customer
 - `PATCH /api/customers/{customer_id}` - update a customer
-- `DELETE /api/customers/{customer_id}` - delete a customer as an admin
+- `DELETE /api/customers/{customer_id}` - delete a customer
 - `GET /api/customers/{customer_id}/accounts` - list accounts owned by a customer
-- `GET /api/admins` - list admins (admin only)
+- `GET /api/admins` - list admins
 - `POST /api/admins` - create an admin
+
+Deposits and withdrawals may also be performed by an admin on any account. The frontend serves separate login pages for each role: `/login` for customers and `/admin/login` for administrators.
 
 Run the tests with:
 

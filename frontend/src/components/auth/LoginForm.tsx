@@ -1,9 +1,19 @@
 import { useState } from "react";
-import { authApi } from "../../api/auth";
+import type { LoginRequest, LoginResponse } from "../../types/auth";
 import { ApiError } from "../../api/client";
 import { authStore } from "../../auth/authStore";
 
-export function LoginScreen() {
+interface Props {
+  title: string;
+  subtitle: string;
+  emailPlaceholder: string;
+  onLogin: (body: LoginRequest) => Promise<LoginResponse>;
+  switchLabel: string;
+  switchActionLabel: string;
+  onSwitch: () => void;
+}
+
+export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -14,7 +24,7 @@ export function LoginScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await authApi.login({ email, password });
+      const res = await onLogin({ email, password });
       authStore.set({ token: res.access_token, email });
     } catch (err) {
       setError(err instanceof ApiError ? err.detail ?? err.message : "Sign in failed");
@@ -34,8 +44,8 @@ export function LoginScreen() {
           </div>
         </div>
 
-        <h1 className="login-title">Sign in</h1>
-        <p className="login-sub">Use your Citi employee credentials to continue.</p>
+        <h1 className="login-title">{title}</h1>
+        <p className="login-sub">{subtitle}</p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -45,7 +55,7 @@ export function LoginScreen() {
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={emailPlaceholder}
               required
               autoFocus
             />
@@ -80,6 +90,12 @@ export function LoginScreen() {
 
         <div className="login-foot">
           <span>Protected area · Session expires in 30 minutes</span>
+          <div style={{ marginTop: 10 }}>
+            {switchLabel}{" "}
+            <button type="button" className="btn-link" onClick={onSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+              {switchActionLabel}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { accountsApi } from "../../api/accounts";
 import { meApi } from "../../api/me";
 import { ApiError } from "../../api/client";
-import type { Account, AccountCreate, AccountUpdate } from "../../types/account";
+import type { Account, AccountCreate } from "../../types/account";
 import type { Customer } from "../../types/customer";
 import type { Me } from "../../types/me";
 import { SummaryCards } from "./SummaryCards";
@@ -11,7 +11,9 @@ import { AccountDrawer } from "./AccountDrawer";
 import { MoneyModal, type MoneyMode } from "./MoneyModal";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
-type DrawerMode = { kind: "create" } | { kind: "edit"; account: Account } | null;
+// Only account creation is available to customers here; editing an existing
+// account's type and viewing a single account by id are admin-only endpoints.
+type DrawerMode = { kind: "create" } | null;
 type MoneyState = { mode: MoneyMode; account: Account } | null;
 
 interface Props {
@@ -69,21 +71,6 @@ export function MyAccountsPage({ me }: Props) {
       showToast(`Account ${created.account_number} created`);
     } catch (err) {
       setDrawerError(err instanceof ApiError ? err.detail ?? err.message : "Create failed");
-    } finally {
-      setDrawerSubmitting(false);
-    }
-  }
-
-  async function handleUpdate(id: number, data: AccountUpdate) {
-    setDrawerSubmitting(true);
-    setDrawerError(undefined);
-    try {
-      const updated = await accountsApi.update(id, data);
-      setAccounts((prev) => prev.map((a) => (a.id === id ? updated : a)));
-      setDrawer(null);
-      showToast(`Account ${updated.account_number} updated`);
-    } catch (err) {
-      setDrawerError(err instanceof ApiError ? err.detail ?? err.message : "Update failed");
     } finally {
       setDrawerSubmitting(false);
     }
@@ -179,7 +166,6 @@ export function MyAccountsPage({ me }: Props) {
           customersById={customersById}
           loading={loading}
           showOwner={false}
-          onEdit={(a) => { setDrawerError(undefined); setDrawer({ kind: "edit", account: a }); }}
           onDeposit={(a) => { setMoneyError(undefined); setMoney({ mode: "deposit", account: a }); }}
           onWithdraw={(a) => { setMoneyError(undefined); setMoney({ mode: "withdraw", account: a }); }}
         />
@@ -195,7 +181,7 @@ export function MyAccountsPage({ me }: Props) {
         errorDetail={drawerError}
         onClose={() => setDrawer(null)}
         onCreate={handleCreate}
-        onUpdate={handleUpdate}
+        onUpdate={() => { /* customers cannot edit accounts; this drawer never enters edit mode */ }}
       />
       <MoneyModal
         open={money !== null}
