@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BrandMark } from "../ui/BrandMark";
 
 interface Props {
   role: "customer" | "admin";
@@ -12,11 +13,8 @@ export function AuthLayout({ role, children }: Props) {
       <div className="auth-frame">
         <div className="auth-hero">
           <div className="login-brand">
-            <div className="dot" title="Citi" />
-            <div>
-              <div className="wordmark">citi</div>
-              <div className="app-name">Banking Console</div>
-            </div>
+            <BrandMark />
+            <div className="wordmark">Polis</div>
           </div>
           <div className="auth-hero-content">
             <span className="auth-eyebrow">{isAdmin ? "ADMINISTRATOR ACCESS" : "PERSONAL BANKING"}</span>
@@ -29,7 +27,7 @@ export function AuthLayout({ role, children }: Props) {
               <span>{isAdmin ? "Restricted staff workspace" : "Your personal account workspace"}</span>
             </div>
           </div>
-          <span className="auth-hero-bottom">CITI BANKING CONSOLE</span>
+          <span className="auth-hero-bottom">POLIS BANKING CONSOLE</span>
         </div>
         <div className="login-card">{children}</div>
       </div>

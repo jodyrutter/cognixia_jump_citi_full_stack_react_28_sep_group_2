@@ -25,24 +25,13 @@ input, select, textarea { font-family: inherit; }
   border-bottom: 3px solid var(--red);
 }
 .brand { display: flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; cursor: pointer; }
-.brand .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--red); position: relative; }
-.brand .dot::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #fff; }
+.brand .logo { width: 22px; height: 22px; color: var(--red); flex: 0 0 auto; }
 .brand .wordmark { font-family: var(--serif); font-weight: 700; font-size: 19px; letter-spacing: 0.2px; }
 .brand .divider { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.25); margin: 0 16px; }
 .brand .app-name { font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.85); letter-spacing: 0.4px; text-transform: uppercase; }
 
 .topbar .spacer { flex: 1; }
 .topbar .actions { display: flex; align-items: center; gap: 6px; }
-.icon-btn {
-  width: 36px; height: 36px; border-radius: 6px;
-  display: inline-flex; align-items: center; justify-content: center; color: #fff;
-  transition: background 0.12s; position: relative;
-}
-.icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
-.icon-btn .badge {
-  position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--red);
-  border: 2px solid var(--navy);
-}
 .user-chip {
   display: flex; align-items: center; gap: 10px; padding: 4px 10px 4px 4px; border-radius: 24px;
   transition: background 0.12s;
@@ -403,7 +392,7 @@ td.when { color: var(--muted); font-variant-numeric: tabular-nums; white-space: 
 .auth-hero { background: linear-gradient(155deg, #064879, #002855 76%); color: #fff; min-height: 560px; padding: 40px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 .auth-hero::after { content: ""; position: absolute; width: 310px; height: 310px; border: 1px solid rgba(255,255,255,0.13); border-radius: 50%; right: -125px; bottom: -75px; box-shadow: 0 0 0 50px rgba(255,255,255,0.025), 0 0 0 110px rgba(255,255,255,0.02); pointer-events: none; }
 .login-page-admin .auth-hero { background: linear-gradient(155deg, #203c67, #11223e 80%); }
-.auth-hero .login-brand { position: relative; z-index: 1; }
+.auth-hero .login-brand { position: relative; z-index: 1; justify-content: center; }
 .auth-hero .login-brand .wordmark, .auth-hero .login-brand .app-name { color: #fff; }
 .auth-hero .login-brand .app-name { opacity: .7; }
 .auth-hero-content { margin: auto 0; position: relative; z-index: 1; }
@@ -436,8 +425,7 @@ td.when { color: var(--muted); font-variant-numeric: tabular-nums; white-space: 
 .logout-dialog p { color: var(--muted); line-height: 1.5; margin: 0 0 24px; }
 .logout-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-.login-brand .dot { width: 26px; height: 26px; border-radius: 50%; background: var(--red); position: relative; }
-.login-brand .dot::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+.login-brand .logo { width: 26px; height: 26px; color: var(--red); flex: 0 0 auto; }
 .login-brand .wordmark { font-family: var(--serif); font-weight: 700; font-size: 22px; color: var(--ink); line-height: 1; }
 .login-brand .app-name { font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .login-title { font-family: var(--serif); font-size: 26px; font-weight: 700; margin: 0 0 4px; color: var(--ink); }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AppShell } from "./components/layout/AppShell";
 import type { Page } from "./components/layout/Sidebar";
 import { AccountsPage } from "./components/accounts/AccountsPage";
@@ -17,22 +17,19 @@ import { useCurrentUser } from "./auth/useCurrentUser";
 import { usePathname } from "./auth/usePathname";
 import { SignupScreen } from "./components/auth/SignupScreen";
 import { useSessionExpiration } from "./auth/useSessionExpiration";
+import { homePage, pageForPath, pathForPage } from "./routes";
 
 export default function App() {
   const { session, logout } = useAuth();
   useSessionExpiration(session);
   const { me, loading, error: profileError, refresh } = useCurrentUser(session);
-  const { path, navigate } = usePathname();
-  const [page, setPage] = useState<Page | null>(null);
+  const { path, navigate, replace } = usePathname();
+  const page: Page | null = me ? pageForPath(path, me.role) : null;
 
+  // Login URLs, unknown paths, and pages for the other role all fall back to the role's home page.
   useEffect(() => {
-    if (me) {
-      setPage((current) => current ?? (me.role === "admin" ? "customers" : "my-accounts"));
-      navigate("/");
-    }
-    if (!me) setPage(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me]);
+    if (me && page === null) replace(pathForPage(homePage(me.role)));
+  }, [me, page, replace]);
 
   async function handleLogout() {
     await authApi.logout();
@@ -90,7 +87,7 @@ export default function App() {
   }
 
   return (
-    <AppShell page={page} onNavigate={setPage} me={me} onLogout={handleLogout}>
+    <AppShell page={page} onNavigate={(p) => navigate(pathForPage(p))} me={me} onLogout={handleLogout}>
       {me.role === "admin" && page === "accounts" && <AccountsPage />}
       {me.role === "admin" && page === "customers" && <CustomersPage />}
       {me.role === "admin" && page === "admins" && <AdminsPage />}

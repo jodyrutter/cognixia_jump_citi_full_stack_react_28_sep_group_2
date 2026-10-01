@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { TopBar } from "./TopBar";
 import { Sidebar, type Page } from "./Sidebar";
 import type { Me } from "../../types/me";
+import { homePage } from "../../routes";
 
 interface Props {
   children: ReactNode;
@@ -12,13 +13,12 @@ interface Props {
 }
 
 export function AppShell({ children, page, onNavigate, me, onLogout }: Props) {
-  const homePage: Page = me.role === "admin" ? "customers" : "my-accounts";
   return (
     <div className="app">
       <TopBar
         me={me}
         onLogout={onLogout}
-        onBrandClick={() => onNavigate(homePage)}
+        onBrandClick={() => onNavigate(homePage(me.role))}
       />
       <div className="body-split">
         <Sidebar role={me.role} current={page} onNavigate={onNavigate} />

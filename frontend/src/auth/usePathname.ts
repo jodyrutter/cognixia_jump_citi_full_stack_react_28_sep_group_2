@@ -10,9 +10,15 @@ export function usePathname() {
   }, []);
 
   const navigate = useCallback((to: string) => {
+    if (window.location.pathname === to) return;
     window.history.pushState({}, "", to);
     setPath(to);
   }, []);
 
-  return { path, navigate };
+  const replace = useCallback((to: string) => {
+    window.history.replaceState({}, "", to);
+    setPath(to);
+  }, []);
+
+  return { path, navigate, replace };
 }

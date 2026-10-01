@@ -14,7 +14,7 @@ export function CustomerLoginScreen({ onSwitchToAdmin, onSignup }: Props) {
       subtitle="Sign in with your personal customer account. Staff accounts use a separate sign-in."
       emailPlaceholder="you@example.com"
       onLogin={authApi.loginCustomer}
-      switchLabel="Are you a Citi administrator?"
+      switchLabel="Are you a Polis administrator?"
       switchActionLabel="Go to admin sign in"
       onSwitch={onSwitchToAdmin}
       onSignup={onSignup}
