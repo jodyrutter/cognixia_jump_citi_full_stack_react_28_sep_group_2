@@ -24,8 +24,8 @@ interface Props {
   showOwner?: boolean;
   onEdit?: (a: Account) => void;
   onDelete?: (a: Account) => void;
-  onDeposit: (a: Account) => void;
-  onWithdraw: (a: Account) => void;
+  onDeposit?: (a: Account) => void;
+  onWithdraw?: (a: Account) => void;
 }
 
 export function AccountsTable({ accounts, customersById, loading, showOwner = true, onEdit, onDelete, onDeposit, onWithdraw }: Props) {
@@ -103,18 +103,22 @@ export function AccountsTable({ accounts, customersById, loading, showOwner = tr
                 <td className="balance">{fmtMoney(a.balance)}</td>
                 <td className="row-menu">
                   <span className="row-actions">
-                    <button className="row-icon-btn success" title="Deposit" onClick={() => onDeposit(a)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="19" x2="12" y2="5" />
-                        <polyline points="5 12 12 5 19 12" />
-                      </svg>
-                    </button>
-                    <button className="row-icon-btn" title="Withdraw" onClick={() => onWithdraw(a)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <polyline points="19 12 12 19 5 12" />
-                      </svg>
-                    </button>
+                    {onDeposit && (
+                      <button className="row-icon-btn success" title="Deposit" onClick={() => onDeposit(a)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="19" x2="12" y2="5" />
+                          <polyline points="5 12 12 5 19 12" />
+                        </svg>
+                      </button>
+                    )}
+                    {onWithdraw && (
+                      <button className="row-icon-btn" title="Withdraw" onClick={() => onWithdraw(a)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <polyline points="19 12 12 19 5 12" />
+                        </svg>
+                      </button>
+                    )}
                     {onEdit && (
                       <button className="row-icon-btn" title="Edit" onClick={() => onEdit(a)}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

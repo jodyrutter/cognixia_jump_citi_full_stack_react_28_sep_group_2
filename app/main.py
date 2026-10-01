@@ -140,12 +140,6 @@ def logout() -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
-@registration_limit
-def signup(request: Request, user_data: CustomerCreate, service: Users) -> Customer:
-    return service.create_customer(user_data)
-
-
 @app.get("/api/me", response_model=Me, tags=["auth"])
 def get_me(current_user: CurrentUser) -> Me:
     return Me(
@@ -157,11 +151,28 @@ def get_me(current_user: CurrentUser) -> Me:
     )
 
 
+# ---------------------------------------------------------------------------
+# Customer-only endpoints.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/login/customer", tags=["auth"])
+@limiter.limit("5/minute")
+def login_customer(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
+    return _login(credentials, user_store, admin_only=False)
+
+
+# Self-registration always creates a customer. There is no self-service signup
+# for admins — new admin accounts can only be created by an existing admin via
+# POST /api/admins.
+@app.post("/api/signup", response_model=Customer, status_code=status.HTTP_201_CREATED, tags=["auth"])
+@registration_limit
+def signup(request: Request, user_data: CustomerCreate, service: Users) -> Customer:
+    return service.create_customer(user_data)
+
+
 def _authorize_transaction(account_id: int, current_user: CurrentUser, service: AccountService) -> None:
-    if isinstance(current_user, Admin):
-        return
     if not isinstance(current_user, Customer):
-        raise HTTPException(status_code=403, detail="Authentication required")
+        raise HTTPException(status_code=403, detail="Only customers can deposit or withdraw funds")
     account = service.get_account(account_id)
     if account.owner_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You can only manage your own account")
@@ -177,16 +188,6 @@ def deposit(account_id: int, request: MoneyRequest, service: Service, current_us
 def withdraw(account_id: int, request: MoneyRequest, service: Service, current_user: CurrentUser) -> Account:
     _authorize_transaction(account_id, current_user, service)
     return service.withdraw(account_id, request.amount)
-
-
-# ---------------------------------------------------------------------------
-# Customer-only endpoints.
-# ---------------------------------------------------------------------------
-
-@app.post("/api/login/customer", tags=["auth"])
-@limiter.limit("5/minute")
-def login_customer(request: Request, credentials: LoginRequest, user_store: UserStorage) -> dict[str, str]:
-    return _login(credentials, user_store, admin_only=False)
 
 
 @app.patch("/api/me", response_model=Customer, tags=["auth"])

@@ -109,7 +109,7 @@ def test_missing_account_returns_not_found(client) -> None:
 
 
 def test_deposit_and_withdraw(client) -> None:
-    client.headers.update(login_headers(client))
+    client.headers.update(login_headers(client, "aarav@example.com", "password", admin=False))
     deposit_response = client.post(
         "/api/accounts/1/deposit",
         json={"amount": "100.00"},
@@ -126,7 +126,7 @@ def test_deposit_and_withdraw(client) -> None:
 
 
 def test_withdraw_rejects_insufficient_funds(client) -> None:
-    client.headers.update(login_headers(client))
+    client.headers.update(login_headers(client, "maya@example.com", "123", admin=False))
     response = client.post(
         "/api/accounts/2/withdraw",
         json={"amount": "10000.00"},
@@ -309,7 +309,7 @@ def test_account_number_generation_retries_existing_number(client, monkeypatch):
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])
 def test_transaction_validation_and_missing_account(client, operation):
-    headers = login_headers(client)
+    headers = login_headers(client, "aarav@example.com", "password", admin=False)
     response = client.post(f"/api/accounts/1/{operation}", json={"amount": "0"}, headers=headers)
     assert response.status_code == 422
     response = client.post(f"/api/accounts/999/{operation}", json={"amount": "1.00"}, headers=headers)
@@ -733,9 +733,10 @@ def test_customer_cannot_transact_on_other_customer_account(client, operation):
 
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])
-def test_admin_can_still_transact_on_any_account(client, operation):
+def test_admin_cannot_transact_on_any_account(client, operation):
     response = client.post(f"/api/accounts/1/{operation}", json={"amount": "10.00"}, headers=login_headers(client))
-    assert response.status_code == 200
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Only customers can deposit or withdraw funds"}
 
 
 @pytest.mark.parametrize("operation", ["deposit", "withdraw"])

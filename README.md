@@ -50,7 +50,7 @@ Admin-only endpoints:
 - `GET /api/admins` - list admins
 - `POST /api/admins` - create an admin
 
-Deposits and withdrawals may also be performed by an admin on any account. The frontend serves separate login pages for each role: `/login` for customers and `/admin/login` for administrators.
+Deposits and withdrawals are customer-only — administrators cannot transact on any account. The frontend serves separate login pages for each role: `/login` for customers and `/admin/login` for administrators.
 
 Run the tests with:
 

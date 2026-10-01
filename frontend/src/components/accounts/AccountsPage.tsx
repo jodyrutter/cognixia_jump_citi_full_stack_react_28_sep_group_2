@@ -9,11 +9,9 @@ import { SummaryCards } from "./SummaryCards";
 import { AccountsTable } from "./AccountsTable";
 import { AccountDrawer } from "./AccountDrawer";
 import { DeleteAccountModal } from "./DeleteAccountModal";
-import { MoneyModal, type MoneyMode } from "./MoneyModal";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
 type DrawerMode = { kind: "create" } | { kind: "edit"; account: Account } | null;
-type MoneyState = { mode: MoneyMode; account: Account } | null;
 
 export function AccountsPage() {
   const { session } = useAuth();
@@ -30,10 +28,6 @@ export function AccountsPage() {
 
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [money, setMoney] = useState<MoneyState>(null);
-  const [moneyError, setMoneyError] = useState<string | undefined>(undefined);
-  const [moneySubmitting, setMoneySubmitting] = useState(false);
 
   const [toast, setToast] = useState<ToastMessage | null>(null);
   function showToast(message: string) {
@@ -135,29 +129,7 @@ export function AccountsPage() {
     }
   }
 
-  async function handleMoney(amount: string) {
-    if (!money) return;
-    setMoneySubmitting(true);
-    setMoneyError(undefined);
-    const { mode, account } = money;
-    try {
-      const updated =
-        mode === "deposit"
-          ? await accountsApi.deposit(account.id, { amount })
-          : await accountsApi.withdraw(account.id, { amount });
-      setAccounts((prev) => prev.map((a) => (a.id === account.id ? updated : a)));
-      const verb = mode === "deposit" ? "Deposited" : "Withdrew";
-      const money$ = `$${Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      showToast(`${verb} ${money$} · ${account.account_number}`);
-      setMoney(null);
-    } catch (err) {
-      setMoneyError(err instanceof ApiError ? err.detail ?? err.message : "Transaction failed");
-    } finally {
-      setMoneySubmitting(false);
-    }
-  }
-
-  const overlayOpen = drawer !== null || toDelete !== null || money !== null;
+  const overlayOpen = drawer !== null || toDelete !== null;
 
   return (
     <>
@@ -266,8 +238,6 @@ export function AccountsPage() {
             loading={loading}
             onEdit={(a) => setDrawer({ kind: "edit", account: a })}
             onDelete={(a) => setToDelete(a)}
-            onDeposit={(a) => { setMoneyError(undefined); setMoney({ mode: "deposit", account: a }); }}
-            onWithdraw={(a) => { setMoneyError(undefined); setMoney({ mode: "withdraw", account: a }); }}
           />
           {!loading && (
             <div className="paging">
@@ -285,7 +255,6 @@ export function AccountsPage() {
         onClick={() => {
           setDrawer(null);
           setToDelete(null);
-          setMoney(null);
         }}
       />
       <AccountDrawer
@@ -306,16 +275,6 @@ export function AccountsPage() {
         submitting={deleting}
         onCancel={() => setToDelete(null)}
         onConfirm={handleDelete}
-      />
-      <MoneyModal
-        open={money !== null}
-        mode={money?.mode ?? "deposit"}
-        account={money?.account ?? null}
-        owner={money ? customersById.get(money.account.owner_id) : undefined}
-        submitting={moneySubmitting}
-        errorDetail={moneyError}
-        onCancel={() => setMoney(null)}
-        onConfirm={handleMoney}
       />
       <Toast toast={toast} onClose={() => setToast(null)} />
     </>
