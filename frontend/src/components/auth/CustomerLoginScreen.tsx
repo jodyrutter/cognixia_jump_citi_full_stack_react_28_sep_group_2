@@ -3,9 +3,10 @@ import { LoginForm } from "./LoginForm";
 
 interface Props {
   onSwitchToAdmin: () => void;
+  onSignup: () => void;
 }
 
-export function CustomerLoginScreen({ onSwitchToAdmin }: Props) {
+export function CustomerLoginScreen({ onSwitchToAdmin, onSignup }: Props) {
   return (
     <LoginForm
       title="Sign in"
@@ -15,6 +16,7 @@ export function CustomerLoginScreen({ onSwitchToAdmin }: Props) {
       switchLabel="Are you a Citi administrator?"
       switchActionLabel="Sign in here"
       onSwitch={onSwitchToAdmin}
+      onSignup={onSignup}
     />
   );
 }

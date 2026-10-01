@@ -11,9 +11,10 @@ interface Props {
   switchLabel: string;
   switchActionLabel: string;
   onSwitch: () => void;
+  onSignup?: () => void;
 }
 
-export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch }: Props) {
+export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch, onSignup }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +97,24 @@ export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLa
               {switchActionLabel}
             </button>
           </div>
+          {onSignup && (
+          <div style={{ marginTop: 10 }}>
+            New customer?{" "}
+            <button
+              type="button"
+              className="btn-link"
+              onClick={onSignup}
+              disabled={submitting}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+              }}
+            >
+              Sign up here
+            </button>
+          </div>)}
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { authApi } from "./api/auth";
 import { useAuth } from "./auth/useAuth";
 import { useCurrentUser } from "./auth/useCurrentUser";
 import { usePathname } from "./auth/usePathname";
+import { SignupScreen } from "./components/auth/SignupScreen";
 
 export default function App() {
   const { session, logout } = useAuth();
@@ -40,10 +41,15 @@ export default function App() {
   }
 
   if (!session) {
+    if (path === "/signup") {
+      return <SignupScreen onSignIn={() => navigate("/")} />;
+    }
+
+
     return path.startsWith("/admin") ? (
       <AdminLoginScreen onSwitchToCustomer={() => navigate("/")} />
     ) : (
-      <CustomerLoginScreen onSwitchToAdmin={() => navigate("/admin/login")} />
+      <CustomerLoginScreen onSwitchToAdmin={() => navigate("/admin/login")} onSignup={() => navigate("/signup")} />
     );
   }
 
