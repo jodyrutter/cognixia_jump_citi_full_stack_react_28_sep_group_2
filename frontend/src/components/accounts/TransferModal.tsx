@@ -92,12 +92,12 @@ export function TransferModal({ open, accounts, initialFromAccountId, submitting
         <div className="form-group" style={{ marginTop: 18 }}>
           <label>From <span className="req">*</span></label>
           <select
+            className="bank-select"
             value={fromAccountId}
             onChange={(e) => {
               setFromAccountId(Number(e.target.value));
               setToOwnAccountId("");
             }}
-            style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--rule)", borderRadius: 6, fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }}
           >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -137,9 +137,9 @@ export function TransferModal({ open, accounts, initialFromAccountId, submitting
           <div className="form-group">
             <label>To account <span className="req">*</span></label>
             <select
+              className="bank-select"
               value={toOwnAccountId}
               onChange={(e) => setToOwnAccountId(e.target.value === "" ? "" : Number(e.target.value))}
-              style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--rule)", borderRadius: 6, fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }}
             >
               <option value="">Select an account…</option>
               {otherOwnAccounts.map((a) => (

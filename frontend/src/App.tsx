@@ -33,13 +33,10 @@ export default function App() {
   }, [me]);
 
   async function handleLogout() {
-    try {
-      await authApi.logout();
-    } catch {
-      /* best effort — clear the local session regardless */
-    } finally {
-      logout();
-    }
+    await authApi.logout();
+    sessionStorage.setItem("auth-notice", "You have successfully logged out.");
+    navigate(me?.role === "admin" ? "/admin/login" : "/");
+    logout();
   }
 
   if (!session) {
@@ -74,7 +71,12 @@ export default function App() {
                   Retry
                 </button>
 
-                <button type="button" className="btn btn-ghost" onClick={() => void handleLogout()}>
+                <button type="button" className="btn btn-ghost" onClick={() => {
+                  if (window.confirm("Log out of your account?")) {
+                    logout();
+                    navigate("/");
+                  }
+                }}>
                   Sign out
                 </button>
               </div>

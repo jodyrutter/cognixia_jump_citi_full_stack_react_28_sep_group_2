@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Me } from "../../types/me";
+import { ApiError } from "../../api/client";
 
 interface Props {
   me: Me | null;
-  onLogout: () => void;
+  onLogout: () => Promise<void>;
   onBrandClick: () => void;
 }
 
@@ -15,6 +16,9 @@ function initialsFor(name: string) {
 
 export function TopBar({ me, onLogout, onBrandClick }: Props) {
   const [open, setOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,7 +84,8 @@ export function TopBar({ me, onLogout, onBrandClick }: Props) {
               className="menu-item"
               onClick={() => {
                 setOpen(false);
-                onLogout();
+                setLogoutError(null);
+                setConfirmLogout(true);
               }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -93,6 +98,28 @@ export function TopBar({ me, onLogout, onBrandClick }: Props) {
           </div>
         </div>
       </div>
+      {confirmLogout && (
+        <div className="logout-backdrop">
+          <div className="logout-dialog" role="alertdialog" aria-modal="true" aria-labelledby="logout-title" aria-describedby="logout-description">
+            <h2 id="logout-title">Log out of your account?</h2>
+            <p id="logout-description">You'll need to sign in again to access your {roleLabel.toLowerCase()} account.</p>
+            {logoutError && <div className="err-banner" role="alert"><div className="msg">{logoutError}</div></div>}
+            <div className="logout-actions">
+              <button className="btn btn-ghost" disabled={loggingOut} onClick={() => setConfirmLogout(false)}>Stay signed in</button>
+              <button className="btn btn-danger" disabled={loggingOut} onClick={async () => {
+                setLoggingOut(true);
+                setLogoutError(null);
+                try {
+                  await onLogout();
+                } catch (err) {
+                  setLogoutError(err instanceof ApiError ? err.detail ?? err.message : "Could not log out. Please try again.");
+                  setLoggingOut(false);
+                }
+              }}>{loggingOut ? "Logging out…" : "Log out"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

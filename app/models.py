@@ -152,6 +152,7 @@ class Transaction(BaseModel):
     amount: Decimal
     balance_after: Decimal
     counterparty_account_number: str | None = None
+    counterparty_name: str | None = None
     created_at: datetime
 
 

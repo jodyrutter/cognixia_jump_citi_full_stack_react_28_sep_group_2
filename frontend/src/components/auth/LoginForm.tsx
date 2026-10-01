@@ -2,9 +2,11 @@ import { useState } from "react";
 import type { LoginRequest, LoginResponse } from "../../types/auth";
 import { ApiError } from "../../api/client";
 import { authStore } from "../../auth/authStore";
+import { AuthLayout } from "./AuthLayout";
 
 interface Props {
   title: string;
+  role: "customer" | "admin";
   subtitle: string;
   emailPlaceholder: string;
   onLogin: (body: LoginRequest) => Promise<LoginResponse>;
@@ -14,7 +16,7 @@ interface Props {
   onSignup?: () => void;
 }
 
-export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch, onSignup }: Props) {
+export function LoginForm({ title, role, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch, onSignup }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -42,21 +44,13 @@ export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLa
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <div className="dot" title="Citi" />
-          <div>
-            <div className="wordmark">citi</div>
-            <div className="app-name">Banking Console</div>
-          </div>
-        </div>
-
+    <AuthLayout role={role}>
+        <span className="login-role">{role === "admin" ? "ADMIN SIGN IN" : "CUSTOMER SIGN IN"}</span>
         <h1 className="login-title">{title}</h1>
         <p className="login-sub">{subtitle}</p>
 
         {notice && (
-          <div className="err-banner" role="status" style={{ marginBottom: 12 }}>
+          <div className={notice === "You have successfully logged out." ? "auth-success" : "auth-notice"} role="status">
             <div className="msg">{notice}</div>
           </div>
         )}
@@ -103,7 +97,6 @@ export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLa
         </form>
 
         <div className="login-foot">
-          <span>Protected area · Session expires in 30 minutes</span>
           <div style={{ marginTop: 10 }}>
             {switchLabel}{" "}
             <button type="button" className="btn-link" onClick={onSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
@@ -129,7 +122,6 @@ export function LoginForm({ title, subtitle, emailPlaceholder, onLogin, switchLa
             </button>
           </div>)}
         </div>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

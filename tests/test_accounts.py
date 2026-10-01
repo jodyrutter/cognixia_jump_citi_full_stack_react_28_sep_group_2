@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pymongo.database import Database
 import jwt
+from bson.decimal128 import Decimal128
 
 
 os.environ.setdefault("MONGODB_URI", "mongodb://localhost:27017")
@@ -533,10 +534,29 @@ def test_transfer_to_another_customer(client) -> None:
     assert history[0]["type"] == "transfer_in"
     assert history[0]["amount"] == "100.00"
     assert history[0]["counterparty_account_number"] == "10000001"
+    assert history[0]["counterparty_name"] == "Aarav Sharma"
 
     sender_history = client.get("/api/me/transactions", headers=aarav).json()
     assert sender_history[0]["type"] == "transfer_out"
     assert sender_history[0]["counterparty_account_number"] == "10000002"
+    assert sender_history[0]["counterparty_name"] == "Maya Patel"
+
+    admin_history = client.get("/api/transactions", headers=admin).json()
+    assert {entry["counterparty_name"] for entry in admin_history} == {"Aarav Sharma", "Maya Patel"}
+
+    database = get_database()
+    database["accounts"].delete_one({"id": 2})
+    assert client.get("/api/me/transactions", headers=aarav).json()[0]["counterparty_name"] == "Maya Patel"
+    database["accounts"].insert_one({
+        "id": 2, "account_number": "10000002", "owner_id": 2, "account_type": "savings",
+        "balance": Decimal128("4900.50"),
+    })
+    database["transactions"].update_many({}, {"$unset": {"counterparty_name": ""}})
+    assert client.get("/api/me/transactions", headers=aarav).json()[0]["counterparty_name"] == "Maya Patel"
+    assert client.get("/api/transactions", headers=admin).json()[0]["counterparty_name"] == "Aarav Sharma"
+
+    database["accounts"].delete_one({"id": 2})
+    assert client.get("/api/me/transactions", headers=aarav).json()[0]["counterparty_name"] is None
 
 
 def test_transfer_between_own_accounts(client) -> None:

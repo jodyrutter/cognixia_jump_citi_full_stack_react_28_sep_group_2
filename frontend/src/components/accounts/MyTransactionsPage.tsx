@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { meApi } from "../../api/me";
 import { ApiError } from "../../api/client";
 import type { Transaction, TransactionType } from "../../types/transaction";
+import { localDate } from "../../utils/transactionFilters";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { transactionDetails } from "./transactionDetails";
 
 function fmtMoney(n: string) {
   return `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -19,6 +22,10 @@ export function MyTransactionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | TransactionType>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
 
   async function refresh() {
     setLoading(true);
@@ -41,11 +48,34 @@ export function MyTransactionsPage() {
     [transactions],
   );
 
-  const visible = transactions.filter(
-    (t) =>
-      (accountFilter === "all" || t.account_number === accountFilter) &&
-      (typeFilter === "all" || t.type === typeFilter),
-  );
+  const visible = useMemo(() => {
+    const from = localDate(fromDate, false);
+    const to = localDate(toDate, true);
+    const min = minAmount === "" ? null : Number(minAmount);
+    const max = maxAmount === "" ? null : Number(maxAmount);
+    return transactions.filter((t) => {
+      const when = new Date(t.created_at);
+      const amount = Number(t.amount);
+      return (accountFilter === "all" || t.account_number === accountFilter) &&
+        (typeFilter === "all" || t.type === typeFilter) &&
+        (!from || when >= from) &&
+        (!to || when <= to) &&
+        (min === null || amount >= min) &&
+        (max === null || amount <= max);
+    });
+  }, [transactions, accountFilter, typeFilter, fromDate, toDate, minAmount, maxAmount]);
+
+  const hasFilters = accountFilter !== "all" || typeFilter !== "all" ||
+    fromDate !== "" || toDate !== "" || minAmount !== "" || maxAmount !== "";
+
+  function clearFilters() {
+    setAccountFilter("all");
+    setTypeFilter("all");
+    setFromDate("");
+    setToDate("");
+    setMinAmount("");
+    setMaxAmount("");
+  }
 
   const totals = useMemo(() => {
     let deposits = 0;
@@ -90,7 +120,7 @@ export function MyTransactionsPage() {
         </div>
       )}
 
-      <div className="filter-bar">
+      <div className="filter-bar" style={{ flexWrap: "wrap" }}>
         <label className="chip-select">
           Account:
           <select value={accountFilter} onChange={(e) => setAccountFilter(e.target.value)}>
@@ -106,10 +136,18 @@ export function MyTransactionsPage() {
             <option value="all">All</option>
             <option value="deposit">Deposits</option>
             <option value="withdraw">Withdrawals</option>
-            <option value="transfer_in">Transfers in</option>
-            <option value="transfer_out">Transfers out</option>
+            <option value="transfer_in">Transfers In</option>
+            <option value="transfer_out">Transfers Out</option>
           </select>
         </label>
+        <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromDateChange={setFromDate} onToDateChange={setToDate} />
+        <div className="chip-select">
+          <span>Amount:</span>
+          <input type="number" min="0" step="0.01" placeholder="Min" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} aria-label="Minimum amount" style={{ width: 80 }} />
+          –
+          <input type="number" min="0" step="0.01" placeholder="Max" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} aria-label="Maximum amount" style={{ width: 80 }} />
+        </div>
+        {hasFilters && <button className="btn-link" onClick={clearFilters}>Clear</button>}
         <div className="spacer" />
         {!loading && visible.length > 0 && (
           <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
@@ -134,7 +172,7 @@ export function MyTransactionsPage() {
           <p>
             {transactions.length === 0
               ? "Deposits, withdrawals, and transfers you make from My Accounts will appear here."
-              : "Try a different account or type filter."}
+              : "Try clearing or changing the filters."}
           </p>
         </div>
       ) : (
@@ -170,12 +208,6 @@ export function MyTransactionsPage() {
                       transfer_in: "Transfer In",
                       transfer_out: "Transfer Out",
                     };
-                    const details =
-                      t.type === "transfer_out"
-                        ? `To ${t.counterparty_account_number}`
-                        : t.type === "transfer_in"
-                        ? `From ${t.counterparty_account_number}`
-                        : "—";
                     return (
                       <tr key={t.id}>
                         <td className="when">{fmtDate(t.created_at)}</td>
@@ -183,7 +215,7 @@ export function MyTransactionsPage() {
                         <td>
                           <span className={`type-badge type-${t.type}`}>{labels[t.type]}</span>
                         </td>
-                        <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{details}</td>
+                        <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{transactionDetails(t)}</td>
                         <td className={`amount ${isCredit ? "credit" : "debit"}`}>
                           {isCredit ? "+" : "−"}{fmtMoney(t.amount)}
                         </td>

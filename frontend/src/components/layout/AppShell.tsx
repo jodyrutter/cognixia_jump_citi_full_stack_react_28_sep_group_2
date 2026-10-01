@@ -8,7 +8,7 @@ interface Props {
   page: Page;
   onNavigate: (page: Page) => void;
   me: Me;
-  onLogout: () => void;
+  onLogout: () => Promise<void>;
 }
 
 export function AppShell({ children, page, onNavigate, me, onLogout }: Props) {

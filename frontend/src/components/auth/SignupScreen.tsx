@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { authApi } from "../../api/auth";
 import { ApiError } from "../../api/client";
+import { AuthLayout } from "./AuthLayout";
 
 interface Props {
   onSignIn: () => void;
@@ -86,8 +87,8 @@ export function SignupScreen({ onSignIn }: Props) {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <AuthLayout role="customer">
+        <span className="login-role">CUSTOMER REGISTRATION</span>
         <h1 className="login-title">
           {created ? "Profile created" : "Create your customer profile"}
         </h1>
@@ -108,7 +109,7 @@ export function SignupScreen({ onSignIn }: Props) {
         ) : (
           <>
             <p className="login-sub">
-              Register to open and manage your bank accounts.
+              Create a personal banking account. Administrator accounts are created by existing admins.
             </p>
 
             <form onSubmit={handleSubmit}>
@@ -210,7 +211,6 @@ export function SignupScreen({ onSignIn }: Props) {
             </div>
           </>
         )}
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

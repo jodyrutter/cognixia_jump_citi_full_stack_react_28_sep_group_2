@@ -9,5 +9,6 @@ export interface Transaction {
   amount: string;
   balance_after: string;
   counterparty_account_number?: string | null;
+  counterparty_name?: string | null;
   created_at: string;
 }

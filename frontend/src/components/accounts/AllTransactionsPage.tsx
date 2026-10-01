@@ -4,6 +4,9 @@ import { usersApi } from "../../api/users";
 import { ApiError } from "../../api/client";
 import type { Customer } from "../../types/customer";
 import type { Transaction } from "../../types/transaction";
+import { localDate } from "../../utils/transactionFilters";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { transactionDetails } from "./transactionDetails";
 
 function fmtMoney(n: string) {
   return `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -13,12 +16,6 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   });
-}
-
-// Parses a yyyy-mm-dd input value as a local-time date.
-function localDate(value: string, endOfDay: boolean) {
-  const [y, m, d] = value.split("-").map(Number);
-  return endOfDay ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d);
 }
 
 export function AllTransactionsPage() {
@@ -54,8 +51,8 @@ export function AllTransactionsPage() {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const from = fromDate ? localDate(fromDate, false) : null;
-    const to = toDate ? localDate(toDate, true) : null;
+    const from = localDate(fromDate, false);
+    const to = localDate(toDate, true);
     const min = minAmount === "" ? null : Number(minAmount);
     const max = maxAmount === "" ? null : Number(maxAmount);
     return transactions.filter((t) => {
@@ -92,7 +89,7 @@ export function AllTransactionsPage() {
       <div className="page-head">
         <div>
           <h1>Transactions</h1>
-          <div className="subtitle">Every deposit and withdrawal across all customer accounts.</div>
+          <div className="subtitle">Every deposit, withdrawal, and transfer across all customer accounts.</div>
         </div>
         <div className="page-head-actions">
           <button className="btn btn-ghost" onClick={refresh} disabled={loading}>
@@ -131,18 +128,13 @@ export function AllTransactionsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <label className="chip-select">
-          Date:
-          <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
-          –
-          <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
-        </label>
-        <label className="chip-select">
-          Amount:
+        <DateRangeFilter fromDate={fromDate} toDate={toDate} onFromDateChange={setFromDate} onToDateChange={setToDate} />
+        <div className="chip-select">
+          <span>Amount:</span>
           <input type="number" min="0" step="0.01" placeholder="Min" value={minAmount} onChange={(e) => setMinAmount(e.target.value)} aria-label="Minimum amount" style={{ width: 80 }} />
           –
           <input type="number" min="0" step="0.01" placeholder="Max" value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} aria-label="Maximum amount" style={{ width: 80 }} />
-        </label>
+        </div>
         {hasFilters && <button className="btn-link" onClick={clearFilters}>Clear</button>}
       </div>
 
@@ -151,7 +143,7 @@ export function AllTransactionsPage() {
           <h3>{transactions.length === 0 ? "No transactions yet" : "No matching transactions"}</h3>
           <p>
             {transactions.length === 0
-              ? "Customer deposits and withdrawals will appear here."
+              ? "Customer deposits, withdrawals, and transfers will appear here."
               : "Try clearing the search or filters."}
           </p>
         </div>
@@ -165,6 +157,7 @@ export function AllTransactionsPage() {
                   <th style={{ width: 160 }}>Account #</th>
                   <th>Owner</th>
                   <th style={{ width: 120 }}>Type</th>
+                  <th>Details</th>
                   <th className="right" style={{ width: 150 }}>Amount</th>
                   <th className="right" style={{ width: 160 }}>Balance After</th>
                 </tr>
@@ -177,13 +170,18 @@ export function AllTransactionsPage() {
                         <td><span className="skel" style={{ width: 100 }} /></td>
                         <td><span className="skel" style={{ width: 160 }} /></td>
                         <td><span className="skel" style={{ width: 70 }} /></td>
+                        <td><span className="skel" style={{ width: 110 }} /></td>
                         <td className="amount"><span className="skel" style={{ width: 70 }} /></td>
                         <td className="balance"><span className="skel" style={{ width: 80 }} /></td>
                       </tr>
                     ))
                   : visible.map((t) => {
-                      const isDeposit = t.type === "deposit";
+                      const isCredit = t.type === "deposit" || t.type === "transfer_in";
                       const owner = customersById.get(t.owner_id);
+                      const labels: Record<Transaction["type"], string> = {
+                        deposit: "Deposit", withdraw: "Withdrawal",
+                        transfer_in: "Transfer In", transfer_out: "Transfer Out",
+                      };
                       return (
                         <tr key={t.id}>
                           <td className="when">{fmtDate(t.created_at)}</td>
@@ -195,10 +193,11 @@ export function AllTransactionsPage() {
                             )}
                           </td>
                           <td>
-                            <span className={`type-badge type-${t.type}`}>{isDeposit ? "Deposit" : "Withdrawal"}</span>
+                            <span className={`type-badge type-${t.type}`}>{labels[t.type]}</span>
                           </td>
-                          <td className={`amount ${isDeposit ? "credit" : "debit"}`}>
-                            {isDeposit ? "+" : "−"}{fmtMoney(t.amount)}
+                          <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{transactionDetails(t)}</td>
+                          <td className={`amount ${isCredit ? "credit" : "debit"}`}>
+                            {isCredit ? "+" : "−"}{fmtMoney(t.amount)}
                           </td>
                           <td className="balance">{fmtMoney(t.balance_after)}</td>
                         </tr>

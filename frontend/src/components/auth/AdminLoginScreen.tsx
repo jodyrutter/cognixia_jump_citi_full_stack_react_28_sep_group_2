@@ -8,12 +8,13 @@ interface Props {
 export function AdminLoginScreen({ onSwitchToCustomer }: Props) {
   return (
     <LoginForm
-      title="Admin Sign in"
-      subtitle="Use your Citi employee credentials to continue."
+      role="admin"
+      title="Welcome back, admin."
+      subtitle="Sign in with your administrator account. Customer accounts cannot access this workspace."
       emailPlaceholder="admin@example.com"
       onLogin={authApi.loginAdmin}
       switchLabel="Are you a Citi customer?"
-      switchActionLabel="Sign in here"
+      switchActionLabel="Go to customer sign in"
       onSwitch={onSwitchToCustomer}
     />
   );

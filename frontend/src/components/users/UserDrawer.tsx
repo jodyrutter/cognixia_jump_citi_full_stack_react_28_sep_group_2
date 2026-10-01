@@ -48,7 +48,7 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
   const passwordHint = "At least 8 characters, including one special character.";
   const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);
   const passwordErr = isCreate ? (passwordInvalid ? passwordHint : "") : password !== "" && passwordInvalid ? passwordHint : "";
-  const confirmErr = isCreate && confirmPassword !== password ? "Passwords do not match." : "";
+  const confirmErr = confirmPassword !== password ? "Passwords do not match." : "";
   const anyErr = nameErr || emailErr || passwordErr || confirmErr || addressErr;
 
   function submit() {
@@ -113,7 +113,8 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
         <div className="form-group">
           <label>Password{isCreate && <span className="req">*</span>}</label>
           <input
-            type="text"
+            type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onBlur={() => setTouched(true)}
@@ -130,19 +131,18 @@ export function UserDrawer({ open, mode, submitting, errorDetail, onClose, onCre
           )}
         </div>
 
-        {isCreate && (
           <div className="form-group">
-            <label>Retype Password <span className="req">*</span></label>
+            <label>Retype Password{isCreate && <span className="req">*</span>}</label>
             <input
-              type="text"
+              type="password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               onBlur={() => setTouched(true)}
-              placeholder="Enter the password again"
+              placeholder={isCreate ? "Enter the password again" : "Leave blank to keep existing password"}
             />
             {touched && confirmErr && <div className="field-error">{confirmErr}</div>}
           </div>
-        )}
 
         <div className="form-group">
           <label>Address <span className="req">*</span></label>

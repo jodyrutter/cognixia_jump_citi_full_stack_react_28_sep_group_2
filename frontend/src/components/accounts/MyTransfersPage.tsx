@@ -6,6 +6,7 @@ import type { Account } from "../../types/account";
 import type { Me } from "../../types/me";
 import type { Transaction } from "../../types/transaction";
 import { Toast, type ToastMessage } from "../ui/Toast";
+import { transactionDetails } from "./transactionDetails";
 
 type Destination = "own" | "other";
 
@@ -180,9 +181,9 @@ export function MyTransfersPage({ me }: Props) {
           <div className="form-group">
             <label>From <span className="req">*</span></label>
             <select
+              className="bank-select"
               value={fromAccountId}
               onChange={(e) => { setFromAccountId(Number(e.target.value)); setToOwnAccountId(""); }}
-              style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--rule)", borderRadius: 6, fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }}
             >
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -216,9 +217,9 @@ export function MyTransfersPage({ me }: Props) {
             <div className="form-group">
               <label>To account <span className="req">*</span></label>
               <select
+                className="bank-select"
                 value={toOwnAccountId}
                 onChange={(e) => setToOwnAccountId(e.target.value === "" ? "" : Number(e.target.value))}
-                style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--rule)", borderRadius: 6, fontSize: 13.5, color: "var(--ink)", fontFamily: "inherit" }}
               >
                 <option value="">Select an account…</option>
                 {otherOwnAccounts.map((a) => (
@@ -305,13 +306,12 @@ export function MyTransfersPage({ me }: Props) {
             <tbody>
               {recent.map((t) => {
                 const isCredit = t.type === "transfer_in";
-                const details = isCredit ? `From ${t.counterparty_account_number}` : `To ${t.counterparty_account_number}`;
                 return (
                   <tr key={t.id}>
                     <td className="when">{fmtDate(t.created_at)}</td>
                     <td className="acct">{t.account_number}</td>
                     <td><span className={`type-badge type-${t.type}`}>{isCredit ? "Transfer In" : "Transfer Out"}</span></td>
-                    <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{details}</td>
+                    <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{transactionDetails(t)}</td>
                     <td className={`amount ${isCredit ? "credit" : "debit"}`}>{isCredit ? "+" : "−"}{fmt(t.amount)}</td>
                   </tr>
                 );

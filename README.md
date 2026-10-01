@@ -54,6 +54,12 @@ Admin-only endpoints:
 
 Deposits and withdrawals are customer-only — administrators cannot transact on any account. Transfers move money atomically between a customer's own account and a recipient account identified by account number; the recipient can belong to any customer. The frontend serves separate login pages for each role: `/` for customers and `/admin/login` for administrators.
 
+Customer registration is at `/signup`; admins sign in through the separate admin page and create administrator accounts from there. When updating a customer's profile or editing a customer as an admin, leave both password fields blank to keep the existing password, or enter matching new passwords. The frontend asks for confirmation before logout and shows a sign-out notice on the login page.
+
+On the customer Transactions page, filter history by account, type, date range, or transaction amount; Clear restores the full history. Admin Transactions has date and amount filters as well.
+Enter transaction filter dates as `MM/DD/YYYY` or use the adjacent calendar picker. Slashes are added as you type and removed with Backspace; incomplete or invalid dates are flagged.
+Transfer history displays the sender or recipient's name in Details. Older transfers resolve names from existing accounts; if an older counterparty account has been deleted, its name may be unavailable.
+
 Run the tests with:
 
 ```powershell

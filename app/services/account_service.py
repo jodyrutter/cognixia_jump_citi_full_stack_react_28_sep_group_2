@@ -48,10 +48,25 @@ class AccountService:
     def list_customer_transactions(self, customer_id: int) -> list[Transaction]:
         if self._user_store.get_customer(customer_id) is None:
             raise CustomerNotFoundError
-        return self._store.list_transactions_for_owner(customer_id)
+        return self._with_counterparty_names(self._store.list_transactions_for_owner(customer_id))
 
     def list_transactions(self) -> list[Transaction]:
-        return self._store.list_transactions()
+        return self._with_counterparty_names(self._store.list_transactions())
+
+    def _with_counterparty_names(self, transactions: list[Transaction]) -> list[Transaction]:
+        names: dict[str, str | None] = {}
+        result: list[Transaction] = []
+        for transaction in transactions:
+            number = transaction.counterparty_account_number
+            if not number or transaction.counterparty_name:
+                result.append(transaction)
+                continue
+            if number not in names:
+                account = self._store.get_by_account_number(number)
+                owner = self._user_store.get(account.owner_id) if account else None
+                names[number] = owner.name if owner else None
+            result.append(transaction.model_copy(update={"counterparty_name": names[number]}))
+        return result
 
     def get_account(self, account_id: int) -> Account:
         account = self._store.get(account_id)
@@ -116,13 +131,18 @@ class AccountService:
         if to_account.id == from_account.id:
             raise SameAccountTransferError
 
-        result = self._store.transfer(from_account.id, to_account.id, amount)
+        sender = self._user_store.get(from_account.owner_id)
+        recipient = self._user_store.get(to_account.owner_id)
+        result = self._store.transfer(
+            from_account.id, to_account.id, amount,
+            from_owner_name=sender.name if sender else None,
+            to_owner_name=recipient.name if recipient else None,
+        )
         if result is None:
             raise InsufficientFundsError
         updated_from, updated_to = result
 
         same_owner = updated_to.owner_id == updated_from.owner_id
-        recipient = self._user_store.get(updated_to.owner_id)
         return TransferResult(
             from_account=updated_from,
             to_account=updated_to if same_owner else None,

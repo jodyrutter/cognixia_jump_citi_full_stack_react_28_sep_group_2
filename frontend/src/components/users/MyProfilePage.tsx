@@ -17,6 +17,7 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
   const [email, setEmail] = useState(me.email);
   const [address, setAddress] = useState(me.address);
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | undefined>(undefined);
@@ -28,6 +29,7 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
       setEmail(me.email);
       setAddress(me.address);
       setPassword("");
+      setConfirmPassword("");
       setTouched(false);
       setErrorDetail(undefined);
     }
@@ -38,7 +40,8 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
   const addressErr = address.trim() === "" ? "Required." : "";
   const passwordInvalid = password.length < 8 || /^[A-Za-z0-9]*$/.test(password);
   const passwordErr = password !== "" && passwordInvalid ? "At least 8 characters, including one special character." : "";
-  const anyErr = nameErr || emailErr || addressErr || passwordErr;
+  const confirmErr = password !== confirmPassword ? "Passwords do not match." : "";
+  const anyErr = nameErr || emailErr || addressErr || passwordErr || confirmErr;
 
   async function handleSave() {
     setTouched(true);
@@ -126,7 +129,8 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
           <div className="form-group">
             <label>New Password</label>
             <input
-              type="text"
+              type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onBlur={() => setTouched(true)}
@@ -135,8 +139,20 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
             {touched && passwordErr ? (
               <div className="field-error">{passwordErr}</div>
             ) : (
-              <div className="help">Leave blank to keep your current password.</div>
+              <div className="help"></div>
             )}
+          </div>
+          <div className="form-group">
+            <label>Retype New Password</label>
+            <input
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="Leave blank to keep current password"
+            />
+            {touched && confirmErr && <div className="field-error">{confirmErr}</div>}
           </div>
           <div className="drawer-foot" style={{ position: "static", border: "none", padding: "8px 0" }}>
             <button className="btn btn-ghost" onClick={() => setEditing(false)} disabled={submitting}>Cancel</button>

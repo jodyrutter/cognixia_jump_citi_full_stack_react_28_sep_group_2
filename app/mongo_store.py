@@ -72,6 +72,7 @@ def _transaction_from_document(document: dict[str, Any]) -> Transaction:
         amount=Decimal(str(document["amount"].to_decimal())),
         balance_after=Decimal(str(document["balance_after"].to_decimal())),
         counterparty_account_number=document.get("counterparty_account_number"),
+        counterparty_name=document.get("counterparty_name"),
         created_at=created_at,
     )
 
@@ -216,7 +217,10 @@ class MongoAccountStore:
         self._record_transaction(account, "withdraw", amount)
         return account
 
-    def transfer(self, from_account_id: int, to_account_id: int, amount: Decimal) -> tuple[Account, Account] | None:
+    def transfer(
+        self, from_account_id: int, to_account_id: int, amount: Decimal,
+        from_owner_name: str | None = None, to_owner_name: str | None = None,
+    ) -> tuple[Account, Account] | None:
         self._ensure_initialized()
         withdrawn = self._accounts.find_one_and_update(
             {"id": from_account_id, "balance": {"$gte": Decimal128(str(amount))}},
@@ -239,10 +243,12 @@ class MongoAccountStore:
         from_account = _account_from_document(withdrawn)
         to_account = _account_from_document(deposited)
         self._record_transaction(
-            from_account, "transfer_out", amount, counterparty_account_number=to_account.account_number
+            from_account, "transfer_out", amount,
+            counterparty_account_number=to_account.account_number, counterparty_name=to_owner_name,
         )
         self._record_transaction(
-            to_account, "transfer_in", amount, counterparty_account_number=from_account.account_number
+            to_account, "transfer_in", amount,
+            counterparty_account_number=from_account.account_number, counterparty_name=from_owner_name,
         )
         return from_account, to_account
 
@@ -253,6 +259,7 @@ class MongoAccountStore:
         amount: Decimal,
         *,
         counterparty_account_number: str | None = None,
+        counterparty_name: str | None = None,
     ) -> None:
         counter = self._counters.find_one_and_update(
             {"_id": "transactions"},
@@ -271,6 +278,7 @@ class MongoAccountStore:
             "amount": Decimal128(str(amount)),
             "balance_after": Decimal128(str(account.balance)),
             "counterparty_account_number": counterparty_account_number,
+            "counterparty_name": counterparty_name,
             "created_at": datetime.now(timezone.utc),
         })
 
