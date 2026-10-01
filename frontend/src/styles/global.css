@@ -215,6 +215,19 @@ td.row-menu { text-align: right; width: 92px; }
 .row-icon-btn:hover { background: var(--rule-2); color: var(--ink); }
 .row-icon-btn.danger:hover { background: #fef2f2; color: var(--red); }
 .row-icon-btn.success:hover { background: #ecfdf5; color: var(--success); }
+td.row-menu .row-actions { gap: 8px; white-space: nowrap; }
+.btn-sm { padding: 5px 11px; font-size: 12px; gap: 5px; }
+.btn-deposit { background: #ecfdf5; color: var(--success); border: 1px solid #a7f3d0; }
+.btn-deposit:hover:not(:disabled) { background: #d1fae5; }
+.btn-withdraw { background: #fff; color: var(--ink); border: 1px solid var(--rule); }
+.btn-withdraw:hover:not(:disabled) { background: var(--rule-2); }
+
+.type-deposit { background: #ecfdf5; color: #047857; }
+.type-withdraw { background: #fef3c7; color: #92400e; }
+td.amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+td.amount.credit { color: var(--success); }
+td.amount.debit { color: var(--ink); }
+td.when { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .icon-money-in { background: #ecfdf5; color: var(--success); }
 .icon-money-out { background: #fef3c7; color: var(--warn); }

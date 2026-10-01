@@ -1,6 +1,6 @@
 import type { Role } from "../../types/me";
 
-export type Page = "accounts" | "customers" | "admins" | "my-accounts" | "my-profile";
+export type Page = "accounts" | "customers" | "admins" | "my-accounts" | "my-transactions" | "my-profile";
 
 interface Props {
   role: Role;
@@ -30,16 +30,28 @@ export function Sidebar({ role, current, onNavigate }: Props) {
             <span className="lbl">My Accounts</span>
           </button>
         )}
-        <button className="side-item disabled" title="Transaction history endpoint not yet available">
-          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="4" y1="9" x2="20" y2="9" />
-            <line x1="4" y1="15" x2="20" y2="15" />
-            <line x1="10" y1="3" x2="8" y2="21" />
-            <line x1="16" y1="3" x2="14" y2="21" />
-          </svg>
-          <span className="lbl">Transactions</span>
-          <span className="pill">Soon</span>
-        </button>
+        {role === "customer" ? (
+          <button className={`side-item${current === "my-transactions" ? " active" : ""}`} onClick={() => onNavigate("my-transactions")}>
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="9" x2="20" y2="9" />
+              <line x1="4" y1="15" x2="20" y2="15" />
+              <line x1="10" y1="3" x2="8" y2="21" />
+              <line x1="16" y1="3" x2="14" y2="21" />
+            </svg>
+            <span className="lbl">Transactions</span>
+          </button>
+        ) : (
+          <button className="side-item disabled" title="Transaction history endpoint not yet available">
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="9" x2="20" y2="9" />
+              <line x1="4" y1="15" x2="20" y2="15" />
+              <line x1="10" y1="3" x2="8" y2="21" />
+              <line x1="16" y1="3" x2="14" y2="21" />
+            </svg>
+            <span className="lbl">Transactions</span>
+            <span className="pill">Soon</span>
+          </button>
+        )}
         <button className="side-item disabled" title="Awaiting transfer endpoints">
           <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="17 1 21 5 17 9" />

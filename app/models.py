@@ -1,4 +1,5 @@
 import string
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -103,6 +104,20 @@ class Account(BaseModel):
     owner_id: int
     account_type: AccountType
     balance: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
+
+TransactionType = Literal["deposit", "withdraw"]
+
+
+class Transaction(BaseModel):
+    id: int
+    account_id: int
+    account_number: str
+    owner_id: int
+    type: TransactionType
+    amount: Decimal
+    balance_after: Decimal
+    created_at: datetime
+
 
 class LoginRequest(BaseModel):
     email: str

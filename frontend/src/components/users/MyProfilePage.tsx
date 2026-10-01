@@ -99,12 +99,8 @@ export function MyProfilePage({ me, onProfileUpdated }: Props) {
         </div>
       )}
 
-      <div className="readonly-box" style={{ maxWidth: 480 }}>
-        <div className="row"><span className="k">Customer ID</span><span className="v">#{String(me.user_id).padStart(4, "0")}</span></div>
-      </div>
-
       {!editing ? (
-        <div className="readonly-box" style={{ maxWidth: 480, marginTop: 12 }}>
+        <div className="readonly-box" style={{ maxWidth: 480 }}>
           <div className="row"><span className="k">Full Name</span><span className="v">{me.name}</span></div>
           <div className="row"><span className="k">Email</span><span className="v">{me.email}</span></div>
           <div className="row"><span className="k">Address</span><span className="v">{me.address}</span></div>

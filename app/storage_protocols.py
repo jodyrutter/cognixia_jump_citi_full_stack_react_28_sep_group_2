@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from .models import Account, AccountCreate, AccountUpdate, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, User
+from .models import Account, AccountCreate, AccountUpdate, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction, User
 
 
 class AccountStoreProtocol(Protocol):
@@ -17,6 +17,8 @@ class AccountStoreProtocol(Protocol):
     def save(self, account: Account) -> Account: ...
 
     def delete(self, account_id: int) -> bool: ...
+
+    def list_transactions_for_owner(self, owner_id: int) -> list[Transaction]: ...
 
 
 class UserStoreProtocol(Protocol):

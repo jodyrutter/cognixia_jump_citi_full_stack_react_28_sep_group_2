@@ -134,6 +134,37 @@ def test_withdraw_rejects_insufficient_funds(client) -> None:
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Insufficient funds"}
+    assert client.get("/api/me/transactions").json() == []
+
+
+def test_my_transactions_lists_own_history_newest_first(client) -> None:
+    aarav = login_headers(client, "aarav@example.com", "password", admin=False)
+    maya = login_headers(client, "maya@example.com", "123", admin=False)
+    assert client.get("/api/me/transactions", headers=aarav).json() == []
+
+    client.post("/api/accounts/1/deposit", json={"amount": "100.00"}, headers=aarav)
+    client.post("/api/accounts/1/withdraw", json={"amount": "25.50"}, headers=aarav)
+    client.post("/api/accounts/2/deposit", json={"amount": "1.00"}, headers=maya)
+
+    response = client.get("/api/me/transactions", headers=aarav)
+    assert response.status_code == 200
+    history = response.json()
+    assert [(t["type"], t["amount"], t["balance_after"]) for t in history] == [
+        ("withdraw", "25.50", "1324.50"),
+        ("deposit", "100.00", "1350.00"),
+    ]
+    assert all(t["account_id"] == 1 and t["account_number"] == "10000001" for t in history)
+    assert all(t["created_at"] for t in history)
+
+    maya_history = client.get("/api/me/transactions", headers=maya).json()
+    assert [(t["type"], t["account_id"]) for t in maya_history] == [("deposit", 2)]
+
+
+def test_my_transactions_requires_customer(client) -> None:
+    assert client.get("/api/me/transactions").status_code == 401
+    response = client.get("/api/me/transactions", headers=login_headers(client))
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Only customers have transactions"}
 
 
 @pytest.mark.parametrize("method,path,payload", [

@@ -1,7 +1,7 @@
 from decimal import Decimal
 from pymongo import ReturnDocument
 
-from ..models import Account, AccountCreate, AccountUpdate
+from ..models import Account, AccountCreate, AccountUpdate, Transaction
 from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
 
 
@@ -33,6 +33,11 @@ class AccountService:
         if self._user_store.get_customer(customer_id) is None:
             raise CustomerNotFoundError
         return self._store.list_for_owner(customer_id)
+
+    def list_customer_transactions(self, customer_id: int) -> list[Transaction]:
+        if self._user_store.get_customer(customer_id) is None:
+            raise CustomerNotFoundError
+        return self._store.list_transactions_for_owner(customer_id)
 
     def get_account(self, account_id: int) -> Account:
         account = self._store.get(account_id)

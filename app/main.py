@@ -12,7 +12,7 @@ from slowapi.util import get_remote_address
 
 from . import auth
 from .auth import AdminUser, CurrentUser, logout_session
-from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate
+from .models import Account, AccountCreate, AccountOpenRequest, AccountUpdate, Me, MoneyRequest, LoginRequest, Admin, AdminCreate, Customer, CustomerCreate, CustomerUpdate, Transaction
 from .services.account_service import (
     AccountNotFoundError,
     AccountService,
@@ -208,6 +208,16 @@ def list_my_accounts(service: Service, current_user: CurrentUser) -> list[Accoun
             detail="Only customers have accounts",
         )
     return service.list_customer_accounts(current_user.user_id)
+
+
+@app.get("/api/me/transactions", response_model=list[Transaction], tags=["transactions"])
+def list_my_transactions(service: Service, current_user: CurrentUser) -> list[Transaction]:
+    if not isinstance(current_user, Customer):
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers have transactions",
+        )
+    return service.list_customer_transactions(current_user.user_id)
 
 
 @app.post("/api/accounts", response_model=Account, status_code=status.HTTP_201_CREATED, tags=["accounts"])

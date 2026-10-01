@@ -1,11 +1,12 @@
 from copy import deepcopy
+from datetime import datetime, timezone
 from decimal import Decimal
 import os
 from typing import Any, cast
 import secrets
 
 from bson.decimal128 import Decimal128
-from pymongo import ASCENDING, MongoClient, ReturnDocument
+from pymongo import ASCENDING, DESCENDING, MongoClient, ReturnDocument
 from pymongo.collection import Collection
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
@@ -22,6 +23,7 @@ from .models import (
     Customer,
     CustomerCreate,
     CustomerUpdate,
+    Transaction,
     User,
 )
 
@@ -58,6 +60,22 @@ def _account_from_document(document: dict[str, Any]) -> Account:
         balance=Decimal(str(document["balance"].to_decimal())),
     )
 
+
+def _transaction_from_document(document: dict[str, Any]) -> Transaction:
+    created_at = document["created_at"]
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return Transaction(
+        id=document["id"],
+        account_id=document["account_id"],
+        account_number=document["account_number"],
+        owner_id=document["owner_id"],
+        type=document["type"],
+        amount=Decimal(str(document["amount"].to_decimal())),
+        balance_after=Decimal(str(document["balance_after"].to_decimal())),
+        created_at=created_at,
+    )
+
 class EmailAlreadyExistsError(Exception):
     pass
 
@@ -67,11 +85,13 @@ class MongoAccountStore:
         database = database if database is not None else get_database()
         self._accounts: Collection[dict[str, Any]] = database["accounts"]
         self._counters: Collection[dict[str, Any]] = database["counters"]
+        self._transactions: Collection[dict[str, Any]] = database["transactions"]
         self._initialized = False
 
     def _ensure_initialized(self) -> None:
         if self._initialized:
             return
+        self._transactions.create_index([("owner_id", ASCENDING), ("id", DESCENDING)])
         self._accounts.create_index([("account_number", ASCENDING)], unique=True)
         self._accounts.create_index([("id", ASCENDING)], unique=True)
         self._accounts.create_index([("owner_id", ASCENDING), ("id", ASCENDING)])
@@ -176,13 +196,48 @@ class MongoAccountStore:
     def deposit(self, account_id: int, amount: Decimal) -> Account | None:
         self._ensure_initialized()
         document = self._accounts.find_one_and_update({"id": account_id},{"$inc": {"balance": Decimal128(str(amount))}},return_document=ReturnDocument.AFTER)
-        return _account_from_document(document) if document else None
+        if document is None:
+            return None
+        account = _account_from_document(document)
+        self._record_transaction(account, "deposit", amount)
+        return account
 
     def withdrawl(self, account_id: int, amount: Decimal) -> Account | None:
         self._ensure_initialized()
         document = self._accounts.find_one_and_update({"id": account_id, "balance": {"$gte": Decimal128(str(amount))}},
                                                       {"$inc": {"balance": Decimal128(str(-amount))}},return_document=ReturnDocument.AFTER)
-        return _account_from_document(document) if document else None
+        if document is None:
+            return None
+        account = _account_from_document(document)
+        self._record_transaction(account, "withdraw", amount)
+        return account
+
+    def _record_transaction(self, account: Account, transaction_type: str, amount: Decimal) -> None:
+        counter = self._counters.find_one_and_update(
+            {"_id": "transactions"},
+            {"$inc": {"value": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        if counter is None:
+            raise RuntimeError("Failed to allocate a transaction ID")
+        self._transactions.insert_one({
+            "id": cast(dict[str, Any], counter)["value"],
+            "account_id": account.id,
+            "account_number": account.account_number,
+            "owner_id": account.owner_id,
+            "type": transaction_type,
+            "amount": Decimal128(str(amount)),
+            "balance_after": Decimal128(str(account.balance)),
+            "created_at": datetime.now(timezone.utc),
+        })
+
+    def list_transactions_for_owner(self, owner_id: int) -> list[Transaction]:
+        self._ensure_initialized()
+        return [
+            _transaction_from_document(document)
+            for document in self._transactions.find({"owner_id": owner_id}).sort("id", DESCENDING)
+        ]
 
 class MongoUserStore:
     def __init__(self, database: Database[dict[str, Any]] | None = None) -> None:
