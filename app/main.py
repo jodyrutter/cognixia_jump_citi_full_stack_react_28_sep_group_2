@@ -138,6 +138,9 @@ async def owner_is_admin_handler(_request: Request, _exception: OwnerIsAdminErro
 # ---------------------------------------------------------------------------
 # Public / shared endpoints — usable without authentication, or by either role.
 # ---------------------------------------------------------------------------
+@app.post("/api/auth/refresh", tags=["auth"])
+def refresh_login(token: Annotated[str, Depends(auth.renew_access_token)]) -> dict[str, str]:
+    return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/", tags=["health"])
 def health_check() -> dict[str, str]:

@@ -16,9 +16,11 @@ import { useAuth } from "./auth/useAuth";
 import { useCurrentUser } from "./auth/useCurrentUser";
 import { usePathname } from "./auth/usePathname";
 import { SignupScreen } from "./components/auth/SignupScreen";
+import { useSessionExpiration } from "./auth/useSessionExpiration";
 
 export default function App() {
   const { session, logout } = useAuth();
+  useSessionExpiration(session);
   const { me, loading, error: profileError, refresh } = useCurrentUser(session);
   const { path, navigate } = usePathname();
   const [page, setPage] = useState<Page | null>(null);

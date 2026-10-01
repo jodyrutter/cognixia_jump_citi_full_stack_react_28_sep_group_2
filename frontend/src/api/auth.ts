@@ -7,4 +7,5 @@ export const authApi = {
   loginAdmin: (body: LoginRequest) => api.post<LoginResponse>("/api/login/admin", body),
   logout: () => api.post<void>("/api/logout", undefined),
   signup: (body: CustomerCreate) => api.post<Customer>("/api/signup", body),
+  refresh: () => api.post<LoginResponse>("/api/auth/refresh", undefined),
 };

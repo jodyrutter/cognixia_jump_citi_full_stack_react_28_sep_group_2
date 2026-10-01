@@ -51,6 +51,40 @@ function getErrorDetail(body: unknown,fallback: string): string {
   return fallback;
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<{ response: Response; text: string }> {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  const timer = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {...init, signal: controller.signal});
+
+    const text = await response.text();
+
+    return { response, text };
+  } 
+  catch {
+    if (timedOut) {
+      const method = (init.method ?? "GET").toUpperCase();
+      const isRead = method === "GET" || method === "HEAD";
+
+      throw new ApiError(0, isRead ? "The request took too long. Please try again."
+          : "The request timed out. It may have completed. Check the latest account information before submitting it again.");
+    }
+
+    throw new ApiError(0, "Couldn't reach the banking service. Check your connection and try again.");
+  } 
+  finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const session = authStore.get();
   const headers: Record<string, string> = {
@@ -58,13 +92,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...((init?.headers as Record<string, string>) ?? {}),
   };
   if (session) headers["Authorization"] = `Bearer ${session.token}`;
-
-  let response: Response;
-  try {
-    response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
-  } catch (err) {
-    throw new ApiError(0, "Couldn't reach the banking service. Check your connection and try again.");
-  }
+  const { response, text } = await fetchWithTimeout(`${BASE_URL}${path}`,{...init, headers});
 
   const isLoginRequest = (path === "/api/login" || path === "/api/login/customer" || path === "/api/login/admin");
 
@@ -78,7 +106,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let body: unknown = null;
 
   try {
-    const text = await response.text();
     body = text ? JSON.parse(text) : null;
   } 
   catch {

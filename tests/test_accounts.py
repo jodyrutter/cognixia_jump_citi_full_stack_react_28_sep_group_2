@@ -255,26 +255,25 @@ def test_invalid_jwt_rejected(client, failure):
 
     payload = jwt.decode(original_token, auth.JWT_SECRET, algorithms=[auth.JWT_ALGORITHM])
 
-    session_user_id, session_expiration = auth.sessions[original_token]
+    session_id = payload["sid"]
 
     if failure == "expired":
-        payload["exp"] = datetime.now(timezone.utc) - timedelta(minutes=1)
+        payload["exp"] = (datetime.now(timezone.utc) - timedelta(minutes=1))
 
     elif failure == "missing_user":
         payload["sub"] = "999999"
-        session_user_id = 999999
+        auth.sessions[session_id] = auth.LoginSession(user_id=999999, last_activity=datetime.now(timezone.utc),)
 
-    signing_key = auth.JWT_SECRET
+    elif failure == "logged_out":
+        auth.sessions.pop(session_id)
 
-    if failure == "wrong_signature":
-        signing_key = "different-test-signing-secret-at-least-32-bytes"
+    signing_key = (
+        "different-test-signing-secret-at-least-32-bytes"
+        if failure == "wrong_signature"
+        else auth.JWT_SECRET
+    )
 
     token = jwt.encode(payload, signing_key, algorithm=auth.JWT_ALGORITHM)
-
-    auth.sessions[token] = (session_user_id, session_expiration)
-
-    if failure == "logged_out":
-        auth.sessions.pop(token)
 
     response = client.delete("/api/accounts/1", headers={"Authorization": f"Bearer {token}"})
 
@@ -292,7 +291,7 @@ def test_login_returns_signed_jwt(client):
 
     payload = jwt.decode(body["access_token"], auth.JWT_SECRET, algorithms=[auth.JWT_ALGORITHM],
         options={
-            "require": ["sub", "username", "role", "exp", "jti"],
+            "require": ["sub", "username", "role", "sid", "exp", "jti"],
         },
     )
 
@@ -955,3 +954,102 @@ def test_admin_lists_all_transactions(client):
 
     assert client.get("/api/transactions").status_code == 401
     assert client.get("/api/transactions", headers=aarav).status_code == 403
+
+def decode_test_token(token):
+    return jwt.decode(
+        token,
+        auth.JWT_SECRET,
+        algorithms=[auth.JWT_ALGORITHM],
+    )
+
+
+def test_refresh_extends_token_and_logout_revokes_session(client):
+    headers = login_headers(client)
+    original_token = headers["Authorization"].split(" ", 1)[1]
+    original_payload = decode_test_token(original_token)
+
+    original_payload["exp"] = (
+        datetime.now(timezone.utc) + timedelta(minutes=1)
+    )
+    short_token = jwt.encode(
+        original_payload,
+        auth.JWT_SECRET,
+        algorithm=auth.JWT_ALGORITHM,
+    )
+    short_headers = {"Authorization": f"Bearer {short_token}"}
+
+    response = client.post(
+        "/api/auth/refresh",
+        headers=short_headers,
+    )
+
+    assert response.status_code == 200
+
+    renewed_token = response.json()["access_token"]
+    renewed_payload = decode_test_token(renewed_token)
+
+    assert renewed_payload["sid"] == original_payload["sid"]
+    assert renewed_payload["jti"] != original_payload["jti"]
+    assert renewed_payload["exp"] > decode_test_token(short_token)["exp"]
+
+    renewed_headers = {
+        "Authorization": f"Bearer {renewed_token}",
+    }
+
+    assert client.get(
+        "/api/me", headers=renewed_headers
+    ).status_code == 200
+
+    assert client.post(
+        "/api/logout", headers=renewed_headers
+    ).status_code == 204
+
+    for token_headers in (short_headers, renewed_headers):
+        assert client.get(
+            "/api/me", headers=token_headers
+        ).status_code == 401
+
+
+def test_idle_session_cannot_refresh(client):
+    headers = login_headers(client)
+    token = headers["Authorization"].split(" ", 1)[1]
+    payload = decode_test_token(token)
+
+    auth.sessions[payload["sid"]].last_activity = (
+        datetime.now(timezone.utc)
+        - auth.IDLE_TIMEOUT
+        - timedelta(seconds=1)
+    )
+
+    response = client.post("/api/auth/refresh", headers=headers)
+
+    assert response.status_code == 401
+    assert payload["sid"] not in auth.sessions
+
+
+def test_expired_token_cannot_refresh(client):
+    headers = login_headers(client)
+    token = headers["Authorization"].split(" ", 1)[1]
+    payload = decode_test_token(token)
+
+    payload["exp"] = (
+        datetime.now(timezone.utc) - timedelta(seconds=1)
+    )
+
+    expired_token = jwt.encode(
+        payload,
+        auth.JWT_SECRET,
+        algorithm=auth.JWT_ALGORITHM,
+    )
+
+    response = client.post(
+        "/api/auth/refresh",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_refresh_requires_authentication(client):
+    response = client.post("/api/auth/refresh")
+    assert response.status_code == 401
