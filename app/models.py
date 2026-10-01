@@ -77,7 +77,7 @@ class CustomerUpdate(BaseModel):
     @field_validator("password")
     @classmethod
     def _password_strength(cls, value: str | None) -> str | None:
-        return _validate_password_strength(value)
+        return _validate_password_strength(value) if value is not None else value
 
 
 class AdminCreate(CustomerCreate):

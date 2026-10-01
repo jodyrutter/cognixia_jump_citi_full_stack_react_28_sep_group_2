@@ -1,5 +1,4 @@
 from decimal import Decimal
-from pymongo import ReturnDocument
 
 from ..models import Account, AccountCreate, AccountUpdate, Transaction
 from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
@@ -73,7 +72,7 @@ class AccountService:
     def withdraw(self, account_id: int, amount: Decimal) -> Account:
         self._validate_amount(amount)
         
-        account = self._store.withdrawl(account_id, amount)
+        account = self._store.withdraw(account_id, amount)
         
         if account is None:
             if self._store.get(account_id) is None:
