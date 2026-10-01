@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { accountsApi } from "../../api/accounts";
 import { usersApi } from "../../api/users";
 import { ApiError } from "../../api/client";
-import { useAuth } from "../../auth/useAuth";
 import type { Account, AccountCreate, AccountUpdate, AccountType } from "../../types/account";
 import type { Customer } from "../../types/customer";
 import { SummaryCards } from "./SummaryCards";
@@ -14,7 +13,6 @@ import { Toast, type ToastMessage } from "../ui/Toast";
 type DrawerMode = { kind: "create" } | { kind: "edit"; account: Account } | null;
 
 export function AccountsPage() {
-  const { session } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,11 +81,11 @@ export function AccountsPage() {
     });
   }, [accounts, search, typeFilter, customersById]);
 
-  async function handleCreate(data: AccountCreate) {
+  async function handleCreate(data: AccountCreate, ownerEmail: string) {
     setDrawerSubmitting(true);
     setDrawerError(undefined);
     try {
-      const created = await accountsApi.create(data);
+      const created = await accountsApi.adminCreate({ owner_email: ownerEmail, account_type: data.account_type });
       setAccounts((prev) => [...prev, created]);
       setDrawer(null);
       showToast(`Account ${created.account_number} created`);
@@ -261,7 +259,8 @@ export function AccountsPage() {
         open={drawer !== null}
         mode={drawer ?? { kind: "create" }}
         customers={customers}
-        currentUserEmail={session?.email ?? ""}
+        currentUserEmail=""
+        ownerEmailEditable
         submitting={drawerSubmitting}
         errorDetail={drawerError}
         onClose={() => setDrawer(null)}

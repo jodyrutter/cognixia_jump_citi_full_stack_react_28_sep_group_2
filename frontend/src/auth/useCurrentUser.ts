@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { meApi } from "../api/me";
+import { ApiError } from "../api/client";
 import type { Me } from "../types/me";
 import type { AuthSession } from "../types/auth";
 
@@ -11,16 +12,20 @@ export function useCurrentUser(session: AuthSession | null) {
   const refresh = useCallback(async () => {
     if (!session) {
       setMe(null);
+      setError(null);
+      setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
       setMe(await meApi.get());
-    } catch {
+    } 
+    catch (err) {
       setMe(null);
-      setError("Couldn't load your profile.");
-    } finally {
+      setError(err instanceof ApiError ? err.detail ?? err.message : "Couldn't load your profile.");
+    } 
+    finally {
       setLoading(false);
     }
   }, [session]);

@@ -12,6 +12,45 @@ export class ApiError extends Error {
   }
 }
 
+function getErrorDetail(body: unknown,fallback: string): string {
+  if (typeof body !== "object" || body === null) {
+    return fallback;
+  }
+
+  const detail = (body as { detail?: unknown }).detail;
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+      const messages = detail.flatMap((item: unknown) => {
+      if (typeof item !== "object" || item === null) {
+        return [];
+      }
+
+      const error = item as {loc?: unknown; msg?: unknown;};
+
+      if (typeof error.msg !== "string") {
+        return [];
+      }
+
+      const field = Array.isArray(error.loc)
+        ? error.loc
+            .filter((part) => part !== "body")
+            .map(String)
+            .join(".")
+        : "";
+
+      return [field ? `${field}: ${error.msg}` : error.msg,];
+    });
+
+    return messages.length > 0 ? messages.join("; ") : fallback;
+  }
+
+  return fallback;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const session = authStore.get();
   const headers: Record<string, string> = {
@@ -24,22 +63,51 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   } catch (err) {
-    throw new ApiError(0, "Couldn't reach the banking service.");
+    throw new ApiError(0, "Couldn't reach the banking service. Check your connection and try again.");
   }
 
-  if (response.status === 401) {
+  const isLoginRequest = (path === "/api/login" || path === "/api/login/customer" || path === "/api/login/admin");
+
+  if (response.status === 401 && session && !isLoginRequest && authStore.get()?.token === session.token) {
+    sessionStorage.setItem("auth-notice", "Your session expired or is no longer valid. Please sign in again.",);
     authStore.clear();
   }
 
   if (response.status === 204) return undefined as T;
 
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body: unknown = null;
+
+  try {
+    const text = await response.text();
+    body = text ? JSON.parse(text) : null;
+  } 
+  catch {
+    if (response.ok) {
+      throw new ApiError(response.status, "The banking service returned an unexpected response.");
+    }
+  }
 
   if (!response.ok) {
-    const detail = body?.detail ?? response.statusText;
-    throw new ApiError(response.status, `${response.status} ${response.statusText}`, detail);
+    let detail: string;
+
+    if (response.status === 429) {
+      detail = "Too many attempts. Please wait a minute and try again.";
+    } 
+    else if (response.status >= 500) {
+      detail = "The banking service encountered a problem. Please try again later.";
+    } 
+    else {
+      const fallback = 
+        response.status === 403 ? "You don't have permission to perform this action." : 
+        response.status === 409 ? "This request conflicts with an existing record." : 
+        response.status === 422 ? "Please check the information you entered." : "The request could not be completed.";
+
+      detail = getErrorDetail(body, fallback);
+    }
+
+    throw new ApiError(response.status, detail, detail);
   }
+
   return body as T;
 }
 

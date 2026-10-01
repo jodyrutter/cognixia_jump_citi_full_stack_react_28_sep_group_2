@@ -274,6 +274,10 @@ class MongoAccountStore:
             "created_at": datetime.now(timezone.utc),
         })
 
+    def list_transactions(self) -> list[Transaction]:
+        self._ensure_initialized()
+        return [_transaction_from_document(document) for document in self._transactions.find().sort("id", DESCENDING)]
+
     def list_transactions_for_owner(self, owner_id: int) -> list[Transaction]:
         self._ensure_initialized()
         return [
@@ -331,6 +335,11 @@ class MongoUserStore:
         document = self._users.find_one({"user_id": user_id, "admin": False})
         user = _user_from_document(document) if document else None
         return user if isinstance(user, Customer) else None
+
+    def get_by_email(self, email: str) -> User | None:
+        self._ensure_initialized()
+        document = self._users.find_one({"normalized_email": email.strip().casefold()})
+        return _user_from_document(document) if document else None
 
     def authenticate(self, email: str, password: str) -> User | None:
         self._ensure_initialized()

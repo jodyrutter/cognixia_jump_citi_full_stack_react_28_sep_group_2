@@ -5,6 +5,7 @@ import type { Customer, CustomerCreate, CustomerUpdate } from "../../types/custo
 import { UsersTable } from "./UsersTable";
 import { UserDrawer, type UserDrawerMode } from "./UserDrawer";
 import { DeleteCustomerModal } from "./DeleteCustomerModal";
+import { CustomerAccountsDrawer } from "./CustomerAccountsDrawer";
 import { Toast, type ToastMessage } from "../ui/Toast";
 
 interface Props {
@@ -22,6 +23,8 @@ export function CustomersPage({ onUsersChanged }: Props) {
 
   const [toDelete, setToDelete] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [viewing, setViewing] = useState<Customer | null>(null);
 
   const [toast, setToast] = useState<ToastMessage | null>(null);
   function showToast(message: string) {
@@ -143,6 +146,7 @@ export function CustomersPage({ onUsersChanged }: Props) {
         kind="customer"
         onEdit={(c) => { setDrawerError(undefined); setDrawer({ kind: "edit", customer: c }); }}
         onDelete={(c) => setToDelete(c)}
+        onRowClick={(c) => setViewing(c)}
       />
       {!loading && (
         <div className="paging">
@@ -151,9 +155,10 @@ export function CustomersPage({ onUsersChanged }: Props) {
       )}
 
       <div
-        className={`overlay${drawer !== null || toDelete !== null ? " open" : ""}`}
-        onClick={() => { setDrawer(null); setToDelete(null); }}
+        className={`overlay${drawer !== null || toDelete !== null || viewing !== null ? " open" : ""}`}
+        onClick={() => { setDrawer(null); setToDelete(null); setViewing(null); }}
       />
+      <CustomerAccountsDrawer customer={viewing} onClose={() => setViewing(null)} />
       <UserDrawer
         open={drawer !== null}
         mode={drawer ?? { kind: "create", role: "customer" }}

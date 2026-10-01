@@ -18,9 +18,10 @@ interface Props {
   kind: "customer" | "admin";
   onEdit?: (u: Customer) => void;
   onDelete?: (u: Customer) => void;
+  onRowClick?: (u: Customer) => void;
 }
 
-export function UsersTable({ users, loading, kind, onEdit, onDelete }: Props) {
+export function UsersTable({ users, loading, kind, onEdit, onDelete, onRowClick }: Props) {
   const roleLabel = kind === "admin" ? "Admin" : "Customer";
   const badgeClass = kind === "admin" ? "type-checking" : "type-savings";
   const hasActions = !!onEdit || !!onDelete;
@@ -71,7 +72,12 @@ export function UsersTable({ users, loading, kind, onEdit, onDelete }: Props) {
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.user_id}>
+            <tr
+              key={u.user_id}
+              className={onRowClick ? "clickable" : undefined}
+              onClick={onRowClick ? () => onRowClick(u) : undefined}
+              title={onRowClick ? `View ${u.name}'s accounts` : undefined}
+            >
               <td className="id">#{String(u.user_id).padStart(4, "0")}</td>
               <td className="owner">
                 <span className="avatar-sm" style={{ background: color(u.user_id) }}>
@@ -83,7 +89,7 @@ export function UsersTable({ users, loading, kind, onEdit, onDelete }: Props) {
               <td style={{ color: "var(--muted)" }}>{u.address}</td>
               <td><span className={`type-badge ${badgeClass}`}>{roleLabel}</span></td>
               {hasActions && (
-                <td className="row-menu">
+                <td className="row-menu" onClick={(e) => e.stopPropagation()}>
                   <span className="row-actions">
                     {onEdit && (
                       <button className="row-icon-btn" title="Edit" onClick={() => onEdit(u)}>

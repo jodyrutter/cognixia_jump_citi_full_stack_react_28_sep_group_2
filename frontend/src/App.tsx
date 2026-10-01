@@ -5,6 +5,7 @@ import { AccountsPage } from "./components/accounts/AccountsPage";
 import { MyAccountsPage } from "./components/accounts/MyAccountsPage";
 import { MyTransactionsPage } from "./components/accounts/MyTransactionsPage";
 import { MyTransfersPage } from "./components/accounts/MyTransfersPage";
+import { AllTransactionsPage } from "./components/accounts/AllTransactionsPage";
 import { CustomersPage } from "./components/users/CustomersPage";
 import { AdminsPage } from "./components/users/AdminsPage";
 import { MyProfilePage } from "./components/users/MyProfilePage";
@@ -18,13 +19,13 @@ import { SignupScreen } from "./components/auth/SignupScreen";
 
 export default function App() {
   const { session, logout } = useAuth();
-  const { me, loading, refresh } = useCurrentUser(session);
+  const { me, loading, error: profileError, refresh } = useCurrentUser(session);
   const { path, navigate } = usePathname();
   const [page, setPage] = useState<Page | null>(null);
 
   useEffect(() => {
     if (me) {
-      setPage((current) => current ?? (me.role === "admin" ? "accounts" : "my-accounts"));
+      setPage((current) => current ?? (me.role === "admin" ? "customers" : "my-accounts"));
       navigate("/");
     }
     if (!me) setPage(null);
@@ -56,9 +57,29 @@ export default function App() {
 
   if (!me || page === null) {
     return (
-      <div className="app">
-        <div className="main" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-          {loading ? "Loading your account…" : "Couldn't load your account."}
+      <div className="login-page">
+        <div className="login-card">
+          {loading || !profileError ? (<p role="status">Loading your account…</p>) : (
+            <>
+              <h1 className="login-title">
+                Couldn't load your account
+              </h1>
+
+              <p className="login-sub" role="alert">
+                {profileError}
+              </p>
+
+              <div style={{display: "flex", gap: 12, flexWrap: "wrap"}}>
+                <button type="button" className="btn btn-primary" onClick={() => void refresh()}>
+                  Retry
+                </button>
+
+                <button type="button" className="btn btn-ghost" onClick={() => void handleLogout()}>
+                  Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -69,6 +90,7 @@ export default function App() {
       {me.role === "admin" && page === "accounts" && <AccountsPage />}
       {me.role === "admin" && page === "customers" && <CustomersPage />}
       {me.role === "admin" && page === "admins" && <AdminsPage />}
+      {me.role === "admin" && page === "transactions" && <AllTransactionsPage />}
       {me.role === "customer" && page === "my-accounts" && <MyAccountsPage me={me} />}
       {me.role === "customer" && page === "my-transactions" && <MyTransactionsPage />}
       {me.role === "customer" && page === "my-transfers" && <MyTransfersPage me={me} />}

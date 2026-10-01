@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from ..models import Account, AccountCreate, AccountUpdate, Transaction, TransferResult
+from ..models import Account, AccountCreate, AccountType, AccountUpdate, Admin, Transaction, TransferResult
 from ..storage_protocols import AccountStoreProtocol, UserStoreProtocol
 
 
@@ -28,6 +28,10 @@ class SameAccountTransferError(Exception):
     pass
 
 
+class OwnerIsAdminError(Exception):
+    pass
+
+
 class AccountService:
     def __init__(self, store: AccountStoreProtocol, user_store: UserStoreProtocol) -> None:
         self._store = store
@@ -46,6 +50,9 @@ class AccountService:
             raise CustomerNotFoundError
         return self._store.list_transactions_for_owner(customer_id)
 
+    def list_transactions(self) -> list[Transaction]:
+        return self._store.list_transactions()
+
     def get_account(self, account_id: int) -> Account:
         account = self._store.get(account_id)
         if account is None:
@@ -56,6 +63,14 @@ class AccountService:
         if self._user_store.get_customer(account_data.owner_id) is None:
             raise CustomerNotFoundError
         return self._store.create(account_data)
+
+    def create_account_for_email(self, owner_email: str, account_type: AccountType) -> Account:
+        owner = self._user_store.get_by_email(owner_email)
+        if owner is None:
+            raise CustomerNotFoundError
+        if isinstance(owner, Admin):
+            raise OwnerIsAdminError
+        return self._store.create(AccountCreate(owner_id=owner.user_id, account_type=account_type))
 
     def update_account(self, account_id: int, account_data: AccountUpdate) -> Account:
         account = self._store.update(account_id, account_data)

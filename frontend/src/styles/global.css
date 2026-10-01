@@ -31,24 +31,6 @@ input, select, textarea { font-family: inherit; }
 .brand .divider { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.25); margin: 0 16px; }
 .brand .app-name { font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.85); letter-spacing: 0.4px; text-transform: uppercase; }
 
-.topbar-search {
-  margin-left: 32px;
-  flex: 0 0 320px;
-  position: relative;
-}
-.topbar-search input {
-  width: 100%;
-  padding: 8px 12px 8px 34px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-}
-.topbar-search input::placeholder { color: rgba(255, 255, 255, 0.6); }
-.topbar-search .ico { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: 0.65; }
-
 .topbar .spacer { flex: 1; }
 .topbar .actions { display: flex; align-items: center; gap: 6px; }
 .icon-btn {
@@ -162,6 +144,9 @@ input, select, textarea { font-family: inherit; }
   border: none; background: transparent; font-size: 13px; font-weight: 500; color: var(--ink); outline: none; cursor: pointer;
   appearance: none; padding-right: 4px;
 }
+.chip-select input {
+  border: none; background: transparent; font-size: 13px; color: var(--ink); outline: none; font-family: inherit;
+}
 .filter-bar .spacer { flex: 1; }
 
 /* Buttons */
@@ -193,6 +178,7 @@ thead th.right { text-align: right; }
 tbody td { padding: 14px 16px; border-bottom: 1px solid var(--rule-2); color: var(--ink); vertical-align: middle; }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: #fafbfd; }
+tbody tr.clickable { cursor: pointer; }
 td.id { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; }
 td.acct { font-family: "SFMono-Regular", Menlo, monospace; font-size: 12.5px; color: var(--ink); }
 td.owner { font-weight: 500; }

@@ -1,6 +1,6 @@
 import type { Role } from "../../types/me";
 
-export type Page = "accounts" | "customers" | "admins" | "my-accounts" | "my-transactions" | "my-transfers" | "my-profile";
+export type Page = "accounts" | "customers" | "admins" | "transactions" | "my-accounts" | "my-transactions" | "my-transfers" | "my-profile";
 
 interface Props {
   role: Role;
@@ -9,10 +9,22 @@ interface Props {
 }
 
 export function Sidebar({ role, current, onNavigate }: Props) {
+  const transactionsPage: Page = role === "admin" ? "transactions" : "my-transactions";
   return (
     <aside className="sidebar">
       <div className="side-group">
         <h4>Navigation</h4>
+        {role === "admin" && (
+          <button className={`side-item${current === "customers" ? " active" : ""}`} onClick={() => onNavigate("customers")}>
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span className="lbl">Customers</span>
+          </button>
+        )}
         {role === "admin" ? (
           <button className={`side-item${current === "accounts" ? " active" : ""}`} onClick={() => onNavigate("accounts")}>
             <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -30,28 +42,15 @@ export function Sidebar({ role, current, onNavigate }: Props) {
             <span className="lbl">My Accounts</span>
           </button>
         )}
-        {role === "customer" ? (
-          <button className={`side-item${current === "my-transactions" ? " active" : ""}`} onClick={() => onNavigate("my-transactions")}>
-            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="9" x2="20" y2="9" />
-              <line x1="4" y1="15" x2="20" y2="15" />
-              <line x1="10" y1="3" x2="8" y2="21" />
-              <line x1="16" y1="3" x2="14" y2="21" />
-            </svg>
-            <span className="lbl">Transactions</span>
-          </button>
-        ) : (
-          <button className="side-item disabled" title="Transaction history endpoint not yet available">
-            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="9" x2="20" y2="9" />
-              <line x1="4" y1="15" x2="20" y2="15" />
-              <line x1="10" y1="3" x2="8" y2="21" />
-              <line x1="16" y1="3" x2="14" y2="21" />
-            </svg>
-            <span className="lbl">Transactions</span>
-            <span className="pill">Soon</span>
-          </button>
-        )}
+        <button className={`side-item${current === transactionsPage ? " active" : ""}`} onClick={() => onNavigate(transactionsPage)}>
+          <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="9" x2="20" y2="9" />
+            <line x1="4" y1="15" x2="20" y2="15" />
+            <line x1="10" y1="3" x2="8" y2="21" />
+            <line x1="16" y1="3" x2="14" y2="21" />
+          </svg>
+          <span className="lbl">Transactions</span>
+        </button>
         {role === "customer" ? (
           <button className={`side-item${current === "my-transfers" ? " active" : ""}`} onClick={() => onNavigate("my-transfers")}>
             <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -73,17 +72,7 @@ export function Sidebar({ role, current, onNavigate }: Props) {
             <span className="lbl">Transfers</span>
           </button>
         )}
-        {role === "admin" ? (
-          <button className={`side-item${current === "customers" ? " active" : ""}`} onClick={() => onNavigate("customers")}>
-            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span className="lbl">Customers</span>
-          </button>
-        ) : (
+        {role === "customer" && (
           <button className={`side-item${current === "my-profile" ? " active" : ""}`} onClick={() => onNavigate("my-profile")}>
             <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
