@@ -16,17 +16,32 @@ interface Props {
   onSignup?: () => void;
 }
 
-export function LoginForm({ title, role, subtitle, emailPlaceholder, onLogin, switchLabel, switchActionLabel, onSwitch, onSignup }: Props) {
+export function LoginForm({
+  title,
+  role,
+  subtitle,
+  emailPlaceholder,
+  onLogin,
+  switchLabel,
+  switchActionLabel,
+  onSwitch,
+  onSignup,
+}: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(() => sessionStorage.getItem("auth-notice"));
+  // Read the one-time logout notice and clear it immediately so it doesn't resurface later (e.g. after a signup).
+  const [notice, setNotice] = useState<string | null>(() => {
+    const stored = sessionStorage.getItem("auth-notice");
+    sessionStorage.removeItem("auth-notice");
+    return stored;
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
-    if(submitting) return;
+
+    if (submitting) return;
 
     sessionStorage.removeItem("auth-notice");
     setNotice(null);
@@ -37,7 +52,11 @@ export function LoginForm({ title, role, subtitle, emailPlaceholder, onLogin, sw
       const res = await onLogin({ email, password });
       authStore.set({ token: res.access_token, email });
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail ?? err.message : "Sign in failed");
+      setError(
+        err instanceof ApiError
+          ? (err.detail ?? err.message)
+          : "Sign in failed",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -45,65 +64,99 @@ export function LoginForm({ title, role, subtitle, emailPlaceholder, onLogin, sw
 
   return (
     <AuthLayout role={role}>
-        <span className="login-role">{role === "admin" ? "ADMIN SIGN IN" : "CUSTOMER SIGN IN"}</span>
-        <h1 className="login-title">{title}</h1>
-        <p className="login-sub">{subtitle}</p>
+      <span className="login-role">
+        {role === "admin" ? "ADMIN SIGN IN" : "CUSTOMER SIGN IN"}
+      </span>
+      <h1 className="login-title">{title}</h1>
+      <p className="login-sub">{subtitle}</p>
 
-        {notice && (
-          <div className={notice === "You have successfully logged out." ? "auth-success" : "auth-notice"} role="status">
-            <div className="msg">{notice}</div>
+      {notice && (
+        <div
+          className={
+            notice === "You have successfully logged out."
+              ? "auth-success"
+              : "auth-notice"
+          }
+          role="status"
+        >
+          <div className="msg">{notice}</div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={emailPlaceholder}
+            required
+            autoFocus
+          />
+        </div>
+        <div className="form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+          />
+        </div>
+
+        {error && (
+          <div className="err-banner" role="alert" style={{ marginBottom: 12 }}>
+            <svg
+              className="ico"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <div className="msg">{error}</div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={emailPlaceholder}
-              required
-              autoFocus
-            />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
+        <button
+          type="submit"
+          className="btn btn-primary"
+          style={{ width: "100%", justifyContent: "center" }}
+          disabled={submitting || !email || !password}
+        >
+          {submitting ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
 
-          {error && (
-            <div className="err-banner" role="alert" style={{ marginBottom: 12 }}>
-              <svg className="ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <div className="msg">{error}</div>
-            </div>
-          )}
-
-          <button type="submit" className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} disabled={submitting || !email || !password}>
-            {submitting ? "Signing in…" : "Sign in"}
+      <div className="login-foot">
+        <div style={{ marginTop: 10 }}>
+          {switchLabel}{" "}
+          <button
+            type="button"
+            className="btn-link"
+            onClick={onSwitch}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+            }}
+          >
+            {switchActionLabel}
           </button>
-        </form>
-
-        <div className="login-foot">
-          <div style={{ marginTop: 10 }}>
-            {switchLabel}{" "}
-            <button type="button" className="btn-link" onClick={onSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-              {switchActionLabel}
-            </button>
-          </div>
-          {onSignup && (
+        </div>
+        {onSignup && (
           <div style={{ marginTop: 10 }}>
             New customer?{" "}
             <button
@@ -120,8 +173,9 @@ export function LoginForm({ title, role, subtitle, emailPlaceholder, onLogin, sw
             >
               Sign up here
             </button>
-          </div>)}
-        </div>
+          </div>
+        )}
+      </div>
     </AuthLayout>
   );
 }

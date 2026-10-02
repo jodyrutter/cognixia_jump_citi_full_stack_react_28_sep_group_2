@@ -15,7 +15,7 @@ os.environ["MONGODB_DATABASE"] = "banking_test"
 from app import auth
 from app.main import get_account_store
 from app.mongo_store import MongoAccountStore, MongoUserStore, get_database
-from app.models import Admin, AdminCreate, CustomerCreate
+from app.models import AdminCreate, CustomerCreate
 from app.mongo_store import get_user_store
 
 from app.main import app
@@ -23,7 +23,6 @@ from app.main import app
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.delenv("BANK_ADMIN_PASSWORD_HASH", raising=False)
     monkeypatch.setattr(app.state.limiter, "enabled", False)
     database: Database = get_database()
     database.client.drop_database(database.name)
@@ -76,7 +75,7 @@ def test_account_crud_flow(client) -> None:
     )
 
     assert create_response.status_code == 201
-    assert create_response.json()["owner_id"] == 5
+    assert create_response.json()["owner_id"] == 4
     account_number = create_response.json()["account_number"]
     assert account_number.isdigit() and len(account_number) == 12
     assert account_number not in {"10000001", "10000002"}
@@ -410,25 +409,8 @@ def test_account_creation_rejects_client_selected_owner(client):
     assert response.status_code == 422
 
 
-def test_bootstrap_admin_uses_configured_hash(monkeypatch):
-    from pwdlib import PasswordHash
-
-    password_hash = PasswordHash.recommended().hash("bootstrap-test-password")
-    monkeypatch.setenv("BANK_ADMIN_PASSWORD_HASH", password_hash)
-    database = get_database()
-    database.client.drop_database(database.name)
-    store = MongoUserStore(database)
-    user = store.authenticate("admin@example.com", "bootstrap-test-password")
-    assert isinstance(user, Admin)
-    assert user.user_id == 3
-    assert user.admin is True
-    assert store.get_customer(1) is not None
-    assert store.authenticate("admin@example.com", "wrong-password") is None
-
-
 def test_seed_users_without_passwords_cannot_login(client):
     for email, endpoint in [
-        ("admin@example.com", "/api/login/admin"),
         ("aarav@example.com", "/api/login/customer"),
         ("maya@example.com", "/api/login/customer"),
     ]:
@@ -638,9 +620,9 @@ def test_transfer_requires_customer_login(client) -> None:
 
 
 def test_customer_delete_rejects_unverified_user_id_header(client):
-    response = client.delete("/api/customers/5", headers={"X-User-Id": "3"})
+    response = client.delete("/api/customers/4", headers={"X-User-Id": "3"})
     assert response.status_code == 401
-    assert client.get("/api/customers/5", headers=login_headers(client)).status_code == 200
+    assert client.get("/api/customers/4", headers=login_headers(client)).status_code == 200
 
 
 def test_customer_password_update_works_with_login(client):
@@ -665,7 +647,7 @@ def test_customer_password_update_works_with_login(client):
 
 def test_deleted_customer_cannot_reuse_session(client):
     headers = login_headers(client, "customer@example.com", admin=False)
-    assert client.delete("/api/customers/5", headers=login_headers(client)).status_code == 204
+    assert client.delete("/api/customers/4", headers=login_headers(client)).status_code == 204
     assert client.patch("/api/accounts/1", json={"account_type": "savings"}, headers=headers).status_code == 401
     assert client.post("/api/login/customer", json={
         "email": "customer@example.com", "password": "test-password",
@@ -806,7 +788,7 @@ def test_update_me_changes_own_profile_without_customer_id(client):
 
     assert response.status_code == 200
     assert response.json()["address"] == "New Address"
-    assert client.get("/api/customers/5", headers=login_headers(client)).json()["address"] == "New Address"
+    assert client.get("/api/customers/4", headers=login_headers(client)).json()["address"] == "New Address"
 
 
 def test_update_me_rejects_admin(client):

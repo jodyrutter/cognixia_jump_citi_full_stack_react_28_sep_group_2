@@ -309,14 +309,10 @@ class MongoUserStore:
         seeds = [
             {"user_id": 1, "name": "Aarav Sharma", "email": "aarav@example.com", "address": "Pune", "admin": False, "password_hash": self._password_hasher.hash("password")},
             {"user_id": 2, "name": "Maya Patel", "email": "maya@example.com", "address": "Mumbai", "admin": False, "password_hash": self._password_hasher.hash("123")},
-            {"user_id": 3, "name": "System Admin", "email": "admin@example.com", "address": "Pune", "admin": True},
         ]
         for seed in seeds:
             seed["normalized_email"] = seed["email"].casefold()
             self._users.update_one({"user_id": seed["user_id"]}, {"$setOnInsert": seed}, upsert=True)
-        admin_hash = os.getenv("BANK_ADMIN_PASSWORD_HASH")
-        if admin_hash:
-            self._users.update_one({"user_id": 3}, {"$set": {"password_hash": admin_hash}})
         maximum = self._users.find_one(sort=[("user_id", -1)])
         self._counters.update_one(
             {"_id": "users"},

@@ -14,7 +14,7 @@ $env:BANK_JWT_SECRET = "replace-with-a-long-random-secret"
 uvicorn app.main:app --reload
 ```
 
-MongoDB must be running before the API handles its first request. You can either install MongoDB Community Edition locally, run MongoDB with Docker, or use a MongoDB Atlas connection string. The API creates its collections and indexes and seeds the sample users and accounts on first use. Set `BANK_ADMIN_PASSWORD_HASH` to give the seeded admin a login password.
+MongoDB must be running before the API handles its first request. You can either install MongoDB Community Edition locally, run MongoDB with Docker, or use a MongoDB Atlas connection string. The API creates its collections and indexes and seeds two sample customers on first use. There is no seeded admin account; create the first administrator directly via `MongoUserStore.create_admin` (for example, in a one-off Python shell), then use that account to create further admins through `POST /api/admins`.
 
 The default MongoDB connection is `mongodb://localhost:27017` and the default database is `banking`. Override them with `MONGODB_URI` and `MONGODB_DATABASE`.
 
@@ -54,7 +54,7 @@ Admin-only endpoints:
 
 Deposits and withdrawals are customer-only — administrators cannot transact on any account. Transfers move money atomically between a customer's own account and a recipient account identified by account number; the recipient can belong to any customer. The frontend serves separate login pages for each role: `/` for customers and `/admin/login` for administrators.
 
-Customer registration is at `/signup`; admins sign in through the separate admin page and create administrator accounts from there. When updating a customer's profile or editing a customer as an admin, leave both password fields blank to keep the existing password, or enter matching new passwords. The frontend asks for confirmation before logout and shows a sign-out notice on the login page.
+Customer registration is at `/signup`; admins sign in through the separate admin page and create administrator accounts from there. When updating a customer's profile or editing a customer as an admin, leave both password fields blank to keep the existing password, or enter matching new passwords. The frontend asks for confirmation before logout and shows a one-time sign-out notice on the login page (it is not shown after signing up).
 
 On the customer Transactions page, filter history by account, type, date range, or transaction amount; Clear restores the full history. Admin Transactions has date and amount filters as well.
 Enter transaction filter dates as `MM/DD/YYYY` or use the adjacent calendar picker. Slashes are added as you type and removed with Backspace; incomplete or invalid dates are flagged.
