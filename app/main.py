@@ -1,3 +1,4 @@
+import os
 from typing import Annotated
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
@@ -31,10 +32,18 @@ UserStorage = Annotated[MongoUserStore, Depends(get_user_store)]
 
 app = FastAPI(title="Banking API", version="0.1.0")
 
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173",
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1):\d+$",
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        FRONTEND_URL,
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
